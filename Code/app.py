@@ -14,10 +14,10 @@
 from flask import Flask, render_template, request
 import networkx as nx
 import requests
+import json
 
 WIKI_URL = "https://en.wikipedia.org"
 API_ENDPOINT = WIKI_URL + "/w/api.php"
-# pagename = "Albert Einstein"
 
 """
 # App config.
@@ -41,7 +41,7 @@ def index():
 
 def get_ego_network(pagetitle):
     """ Fetch links via MediaWiki API's links module """
-    nodes = []
+    nodes = set()
     edges = []
     params = {
         "action": "query",
@@ -56,22 +56,36 @@ def get_ego_network(pagetitle):
     page = next(iter(data['query']['pages']))
     
     for x in data['query']['pages'][page]['links']: 
-        nodes.append(x['title'])
+        nodes.add(x['title'])
         edges.append((pagetitle, x['title']))
     
-    return{'ego': pagetitle, 'nodes': nodes, 'edges': edges}
+    return{'ego': [pagetitle], 'nodes': nodes, 'edges': edges}
 
 # NB: Have to create links of links - to a certain depth... 
-"""
-def get_links_of_links(wikilinks):
 
-    for x,y in wikilinks: 
+def get_edges_of_edges(egonetwork):
+
+    for x in egonetwork['nodes']: 
         
-        get_page_links(y) 
-""" 
+        data = get_ego_network(x)
+        egonetwork['ego'].append(x) 
+        # NB: concatenating two sets... 
+        egonetwork['nodes'] =  egonetwork['nodes'] | data['nodes']
+        # NB: and concatenating two lists... 
+        egonetwork['edges'].append(data['edges'])
+        
+    
+    return(egonetwork)
 
-result = get_ego_network("Alexander Friedmann")
-print(result)
+
+""" DOWNLOAD DATA ONE LEVEL DEEP """ 
+
+data = get_ego_network("Bergen")
+# data = get_edges_of_edges(data)
+
+json.dump(data, f, ensure_ascii=False, indent=4)
+
+
 
 # draw the graph using PyGraphviz, analysis can be done through networkx package.  
 
