@@ -1,4 +1,4 @@
-<title>User contributions feed</title>
+<title>Wikipedia Page Links</title>
 
 <link href="//stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Amatic+SC:700">
@@ -9,7 +9,7 @@
 
   <form action="{{ url_for('index') }}" method="get">
     <div class="form-group flex-container">
-      <input class="form-control col-lg-8" placeholder="Enter a username" name="username" required type="text" {% if username is not none %} value="{{username}}" {% endif %}>
+      <input class="form-control col-lg-8" placeholder="Enter a page name" name="pagename" required type="text" {% if pagename is not none %} value="{{pagename}}" {% endif %}>
     </div>
     <div class="flex-container">
       <button class="btn-submit col-xs-5" type="submit">Submit</button>
@@ -27,7 +27,7 @@
   </ul>
   {% elif data == [] %}
   <div class="flex-container">
-    <h5>OOPS! User <strong>{{username}}</strong> not found</h5>
+    <h5>OOPS! User <strong>{{pagename}}</strong> not found</h5>
   </div>
   {% endif %}
 </div>
