@@ -12,6 +12,7 @@
 """
 
 from flask import Flask, render_template, request
+import networkx as nx
 import requests
 
 WIKI_URL = "https://en.wikipedia.org"
@@ -38,8 +39,10 @@ def index():
         pagename=pagename, wikiurl=WIKI_URL)
 """
 
-def get_page_links(pagetitle):
+def get_ego_network(pagetitle):
     """ Fetch links via MediaWiki API's links module """
+    nodes = []
+    edges = []
     params = {
         "action": "query",
         "format": "json",
@@ -48,13 +51,51 @@ def get_page_links(pagetitle):
     }
 
     response = requests.get(url=API_ENDPOINT, params=params)
+    
     data = response.json()
     page = next(iter(data['query']['pages']))
-    return data['query']['pages'][page]
+    
+    for x in data['query']['pages'][page]['links']: 
+        nodes.append(x['title'])
+        edges.append((pagetitle, x['title']))
+    
+    return{'ego': pagetitle, 'nodes': nodes, 'edges': edges}
+
+# NB: Have to create links of links - to a certain depth... 
+"""
+def get_links_of_links(wikilinks):
+
+    for x,y in wikilinks: 
+        
+        get_page_links(y) 
+""" 
+
+result = get_ego_network("Alexander Friedmann")
+print(result)
+
+# draw the graph using PyGraphviz, analysis can be done through networkx package.  
 
 
-result = get_page_links("Alexander Friedmann")
-print(result['links'])
+
+# print(result)
+
+
+"""
+   for employee,hours in work_hours:
+        if hours > current_max:
+            current_max = hours
+            employee_of_month = employee
+        else:
+            pass
+"""
+
+# def create_graph_list(pagelinks): 
+#     """construct list of edges that can be used in networkx""" 
+
+
+
+
+
 # print(type(result['prop']))
 
 # print(data['links'])
