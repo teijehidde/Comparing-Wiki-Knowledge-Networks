@@ -1,0 +1,58 @@
+Main idea (WIP) 
+
+GENERAL NOTES 
+- Don't approach the project from top to bottom. Start coding, see what's possible. Adjust blog and Qs accordingly. 
+- Also this documents should be dynamic, not taken as set outline. 
+- this is just one change. 
+
+QUESTION: 
+- Is knowledge objective? 
+- Keep on brainstorming about this questions..  
+
+BLOG:
+- Max 600 words. Just a few paragraphs. 
+- The blog needs to build / be written around visualisations of networks. Around the apps that I am coding. Little text, lots of picture. 
+- To answer question we need an assessment of change in knowledge about a topic. 
+- And assessment of this change is 1) positivist (if it berings us closer to a real 'truth') or relativist (if it relates to changes in social context). 
+- We explore how topics are related to each other in wikipdia, as a proxy of 'knowledge' of a topic.    
+- [ASSUMPTION]: Observe changes over time. Not just positivist, relativist. [DO not know if this is really the correct term to use in this context..]
+- Follow up question: What then about fake news/information? 
+- [Possible second blog:] Assessing quality of data/truth by network position - more relations means appropriate data / reflecting reality better. (Mannheim)  
+
+DATA: 
+- Wikipedia API. But needs to be time sensitive! (Does API include this?!)  
+- Collect data around particular topics. 
+
+CODE: 
+- Part 1: Build passive SNA of wikipedia network around particular topic (an Ego network). N layers deep. It should have a slider where you can change time - but no query box where you can request topics. Builds on data saved on server. No wikipedia API interaction.  
+- Part 2: Build interactive app for SNA analysis of wikipedia articles. One where you can surf through the network, and assess how ego networks of topics changed over time. (Note that the limiiting factor will probably be the wikipedia API. This app will need query the API quite a lot to work properly.)  
+
+-----------------------------------------------------------------------------------
+-- Below is an old idea. I kept it here, because not saved in Git)  
+Question: Who is the best networker among UK directors? 
+
+Data: 
+- From UK Gov website: members of board of directors. (https://find-and-update.company-information.service.gov.uk/ + https://developer.company-information.service.gov.uk/)   
++ Nodes are individuals 
++ edges are shared position in board of directors. 
+- BUT: initially I built app and code around a database of Arxiv articles. (So I only need to deal with API and download limits at the end). 
++ Note that this data is not exactly of the same character. But hopefully close enough to initially play with. 
+
+Analysis: 
+- individual network position over time. 
++ Network position changes with added positions in board of directors. 
++ Network position changes with other people joining (and/or leaving) board of directors. 
++ Analysis: do some people 'jump' boards actively? Or does networking 'just happen' to some people? 
+
+-- Note that I CANNOT download the whole dataset. 
++ I should also not try and do this with the data that I do have. 
++ Focus on one article/individual and show changes over time. -- NOT a full analysis. 
++ I can try and download the board of directors of the largest n companies in the UK. That might be possible.. (Note that I do need the data over time as well...) 
+
+Coding 
+- build front end as flask app - Python. 
+- do most of teh back end in R. But (if dealing with json files...) possibly also some in Python. 
+-  
+
+
+
