@@ -16,8 +16,14 @@ from datetime import date
 WIKI_URL = "https://en.wikipedia.org"
 API_ENDPOINT = WIKI_URL + "/w/api.php"
 
-def get_network_level_zero(pagetitle):
-    """ Fetch links via MediaWiki API's links module """
+def Interface(): # TODO 
+
+
+
+def GetEgoNetwork(pagetitle,json_object):
+    """ Fetch or update links via MediaWiki API's of first layer ego network """
+    data_json = json.loads(json_string)
+    
     nodes = []
     edges = []
     params = {
@@ -29,14 +35,15 @@ def get_network_level_zero(pagetitle):
 
     response = requests.get(url=API_ENDPOINT, params=params)
     
-    data = response.json()
+    data_wiki = response.json()
     page = next(iter(data['query']['pages']))
     
     for x in data['query']['pages'][page]['links']: 
         nodes.append(x['title'])
         edges.append((pagetitle, x['title']))
     
-    return{'pages': [{'pageID': page, 'date': 'TODO', 'nodes': {'level0': pagetitle, 'level1': nodes}, 'edges': {'level1': edges}} ] }
+    data_page = {'pages': [{'pageID': page, 'date': 'TODO', 'nodes': {'level0': pagetitle, 'level1': nodes}, 'edges': {'level1': edges}} ] }
+    json_object['pages'].append(data_page)
 
 
 data1 = get_network_level_zero("Duiven")
