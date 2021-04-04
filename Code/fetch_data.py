@@ -18,7 +18,7 @@ from datetime import date
 
 WIKI_URL = "https://en.wikipedia.org"
 API_ENDPOINT = WIKI_URL + "/w/api.php"
-DATA_FILE = 'networkdata.json'
+DATA_FILE = 'networkdata3.json'
 
 # Check if json file "DATA_FILE" is present in folder. 
 def WikiNetworkDataMAIN():
@@ -81,39 +81,45 @@ def CheckStatusNetwork():
     SelectMenu()
 
 
-# Function 3: Build new network - first layer only. 
+# Function 3: Build new network - first layer only. WORKS! (but very prelim, no checks, error handling etc what so ever. still very much WIP.)
 def BuildNetwork():
 
-    network_data = json.load('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE)
+    # setup 
+    nodes = []
+    edges = []
 
+    # opening file 
+    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE) as json_file:
+            network_data = json.load(json_file)
+    
+    # resquesting wiki page to initiate. 
     pagetitle = input("Please provide a title of a Wikipedia page.")
 
-    nodes = set()
-    edges = []
+    # requesting data via wikimedia API.  
     params = {
         "action": "query",
         "format": "json",
         "titles": pagetitle,
         "prop": "links"
     }
-
     response = requests.get(url=API_ENDPOINT, params=params)
     
+    # Transforming response to network data format.  
     data_wiki = response.json()
     page = next(iter(data_wiki['query']['pages']))
-    
-    for x in data_wiki['query']['pages'][page]['links']: 
-        nodes.add(x['title'])
+        
+    for x in data_wiki['query']['pages'][page]['links']:
+        nodes.append(x['title'])
         edges.append((pagetitle, x['title']))
+        
+    data_page = page, {'date': 'TODO', 'nodes': {1: nodes, 2: 'placeholder', 3: 'placeholder', 4: 'placeholder'}, 'edges': {1: edges, 2: 'placeholder', 3: 'placeholder', 4: 'placeholder'} }
+    network_data[pagetitle] = data_page
     
-    data_page = {'pages': [{'pageID': page, 'date': 'TODO', 'nodes': {'level0': pagetitle, 'level1': nodes}, 'edges': {'level1': edges}} ] }
-    
-    network_data['pages'].append(data_page)
-
-    with open(DATA_FILE, 'x') as outfile:
+    # Dumping data into file and saving. 
+    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
         json.dump(network_data, outfile)
-
-   # json_object = json.dumps(network_data, indent=2, sort_keys=True)
+        print("Data succesfully loaded and saved. Returning to main menu.")
+        sleep(1)
 
 # Append one level (or remainder of one level) to existing network. Includes a throttle.  TODO
 def AppendNetwork():
