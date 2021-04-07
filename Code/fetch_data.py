@@ -26,12 +26,14 @@ def WikiNetworkDataMAIN():
     os.system('clear')
 
     try:
-        network_data = open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE)
+        with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE) as json_file:
+            global network_data
+            network_data = json.load(json_file)
     except IOError:
         print("Error: Could not find " + DATA_FILE + ". Please check if file is present in directory, or change DATA_FILE value.")
     else: 
         print("The file " + DATA_FILE + " found, succesfully loaded.")
-        print("Networks are loaded through " + API_ENDPOINT + ".")
+        print("Network data accessed through " + API_ENDPOINT + ".")
         SelectMenu()
 
 # Select function to be run on json file.  
@@ -68,41 +70,56 @@ def SelectMenu():
 # Function 1: List networks in Json file. 
 def ListNetworks():
     os.system('clear')
-    print("ListNetworks is not implemented yet. Returning to main menu.")
+
+    print("Current networks in " + DATA_FILE + ":")
+    print("  ")
+    for item in network_data.keys():
+        print(item)
+
     sleep(1)
     SelectMenu()
     
-
-# Function 2: Get summary of available data on one network. 
+# Function 2: Get summary of available data on one network. WIP!!  
 def CheckStatusNetwork():
     os.system('clear')
-    print("CheckStatusNetwork is not implemented yet. Returning to main menu.")
+
+    pagetitle = input("Please provide a title included in " + DATA_FILE + ": ")
+    
+    print('Number of nodes in level:')
+    for item in network_data[pagetitle][1]['nodes']: 
+        if len(item) > 0: 
+            print(len(item))
+    # ... make a print list! Only print nodes that are actually present! -- this avoids an error... and is cleaner.  
+    # print("1: " + str(len(network_data[pagetitle][1]['nodes']['1'])))
+    # print("2: " + str(len(network_data[pagetitle][1]['nodes']['2'])))
+    # print("3: " + str(len(network_data[pagetitle][1]['nodes']['3'])))
+    print(network_data[pagetitle][1]['nodes'])
+
     sleep(1)
     SelectMenu()
 
 
-# Function 3: Build new network - first layer only. WORKS! (but very prelim, no checks, error handling etc what so ever. still very much WIP.)
+# Function 3: Build new network - first layer only. WORKS! (but very prelim, no checks, error handling etc what so ever. WIP.)
 def BuildNetwork():
 
     # setup 
     nodes = []
     edges = []
-
-    # opening file 
-    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE) as json_file:
-            network_data = json.load(json_file)
     
-    # resquesting wiki page to initiate. 
-    pagetitle = input("Please provide a title of a Wikipedia page.")
+    # resquesting wiki page to initiate.
+    pagetitle = input("Please provide a title of a Wikipedia page: ")
 
     # requesting data via wikimedia API.  
-    params = {
+    S = requests.Session()
+    PARAMS = {
         "action": "query",
         "format": "json",
         "titles": pagetitle,
-        "prop": "links"
+        "prop": "links",
+        "plnamespace": 0, # only load wikipedia main/articles. 
+        "pllimit": 100 # can go up to 500. Go for max? 
     }
-    response = requests.get(url=API_ENDPOINT, params=params)
+    response = S.get(url=API_ENDPOINT, params=PARAMS)
     
     # Transforming response to network data format.  
     data_wiki = response.json()
@@ -112,7 +129,7 @@ def BuildNetwork():
         nodes.append(x['title'])
         edges.append((pagetitle, x['title']))
         
-    data_page = page, {'date': 'TODO', 'nodes': {1: nodes, 2: 'placeholder', 3: 'placeholder', 4: 'placeholder'}, 'edges': {1: edges, 2: 'placeholder', 3: 'placeholder', 4: 'placeholder'} }
+    data_page = page, {'date': 'TODO', 'nodes': {1: nodes, 2: " " , 3:  " ", 4: " " }, 'edges': {1: edges, 2: " ", 3: " ", 4: " "} }
     network_data[pagetitle] = data_page
     
     # Dumping data into file and saving. 
@@ -121,43 +138,28 @@ def BuildNetwork():
         print("Data succesfully loaded and saved. Returning to main menu.")
         sleep(1)
 
-# Append one level (or remainder of one level) to existing network. Includes a throttle.  TODO
+# Function 4: Append one level (or remainder of one level) to existing network. Includes a throttle.  TODO
 def AppendNetwork():
     os.system('clear')
     print("AppendNetwork is not implemented yet. Returning to main menu.")
     sleep(1)
     SelectMenu()
 
-    """
-def get_network_level_one(networkzero):
-
-    for x in networkzero['nodes']: 
-        
-        data = get_ego_network(x)
-        egonetwork['ego'].append(x) 
-        # NB: concatenating two sets... 
-        egonetwork['nodes'] =  egonetwork['nodes'] | data['nodes']
-        # NB: and concatenating two lists... 
-        egonetwork['edges'].append(data['edges'])
-        
-    
-    return(egonetwork)
-"""
-
-# Checks for changes since last actio non network and updates. TODO
+# Function 5: Checks for changes since last action on network and updates. TODO
 def UpdateNetwork():
     os.system('clear')
     print("UpdateNetwork is not implemented yet. Returning to main menu.")
     sleep(1)
     SelectMenu()
 
-# Creates a revision history of complete network. Enables changing network over time. Includes a throttle. TODO
+# Function 6: Creates a revision history of complete network. Enables changing network over time. Includes a throttle. TODO
 def UpdateRevisionsNetwork():
     os.system('clear')
     print("UpdateRevisionsNetwork is not implemented yet. Returning to main menu.")
     sleep(1)
     SelectMenu()
     
-# NB: RUNTIME 
-
+# NB: RUNTIME
 WikiNetworkDataMAIN()
+
+# END 
