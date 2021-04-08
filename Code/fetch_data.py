@@ -18,6 +18,8 @@ from datetime import date
 
 WIKI_URL = "https://en.wikipedia.org"
 API_ENDPOINT = WIKI_URL + "/w/api.php"
+LIMIT_LINKS_PER_NODE = 500
+LIMIT_API_REQUESTS = 100
 DATA_FILE = 'networkdata3.json'
 
 # Check if json file "DATA_FILE" is present in folder. 
@@ -42,7 +44,7 @@ def SelectMenu():
     print("   ")
     print("---")
     print("   ")
-    print("This is a command line tool to build, append and update wikinetworks. Please select one of the following options:")
+    print("This is a command line tool to build, append and update " + DATA_FILE + ". Please select one of the following options:")
     print("   ")
     print("1 = List existing networks in " + DATA_FILE + ".")
     print("2 = Check status of an existing network.")
@@ -50,7 +52,7 @@ def SelectMenu():
     print("4 = Append existing network.")
     print("5 = Update existing network.")
     print("6 = Update revision history of existing network.")
-    print("9 = Quit program.")
+    print("9 = Save json file and exit program.")
 
     choice_int = int(input("Please type a number between 1 and 9 to select one of the above options:" ))
     
@@ -60,21 +62,63 @@ def SelectMenu():
     if choice_int == 4: AppendNetwork()
     if choice_int == 5: UpdateNetwork()
     if choice_int == 6: UpdateRevisionsNetwork()
-    if choice_int == 9: None 
+    if choice_int == 9: SaveAndExit() 
     else: 
         os.system('clear')
         print("Please type a number.")
         print("   ")
         SelectMenu()
 
-# Function 1: List networks in Json file. 
+# Function 0: Download Node.
+def DownloadNode(node_title):
+    
+    # TODO: error handling if page is not present on wikipedia. 
+    # setup 
+    edges = []
+
+    # requesting data via wikimedia API.  
+    S = requests.Session()
+    PARAMS = {
+        "action": "query",
+        "format": "json",
+        "titles": node_title,
+        "prop": "links",
+        # "plcontinue": ,
+        "plnamespace": 0, # only load wikipedia main/articles. 
+        "pllimit": 'max' # can go up to 500. Go for max? 
+    }
+    response = S.get(url=API_ENDPOINT, params=PARAMS)
+    
+    # Transforming response to network data format.  
+    data_wiki = response.json()
+    node = next(iter(data_wiki['query']['pages']))
+        
+    for x in data_wiki['query']['pages'][node]['links']:
+        edges.append(x['title'])
+        
+    node_data = {'node_ID': node, 'ego': 0, 'date_time': 'TODO', 'edges': edges, 'revisions': 'TODO'}
+    network_data[node_title] = node_data
+
+    print("Links data on page " + node_title + " successfully downloaded.")
+
+    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
+        json.dump(network_data, outfile)
+        print("Data succesfully saved.")
+
+    sleep(0.5)
+
+# Function 1: Summary data in Json file. 
 def ListNetworks():
     os.system('clear')
 
-    print("Current networks in " + DATA_FILE + ":")
+    print("Currently there are " + str(len(network_data.keys())) + " nodes in " + DATA_FILE + ".")
     print("  ")
+    
+    print("Nodes with ego status are: ")
+    
     for item in network_data.keys():
-        print(item)
+        if network_data[item]['ego'] == 1:
+            print(item)
 
     sleep(1)
     SelectMenu()
@@ -86,62 +130,40 @@ def CheckStatusNetwork():
     pagetitle = input("Please provide a title included in " + DATA_FILE + ": ")
     
     print('Number of nodes in level:')
-    for item in network_data[pagetitle][1]['nodes']: 
-        if len(item) > 0: 
-            print(len(item))
-    # ... make a print list! Only print nodes that are actually present! -- this avoids an error... and is cleaner.  
-    # print("1: " + str(len(network_data[pagetitle][1]['nodes']['1'])))
-    # print("2: " + str(len(network_data[pagetitle][1]['nodes']['2'])))
-    # print("3: " + str(len(network_data[pagetitle][1]['nodes']['3'])))
-    print(network_data[pagetitle][1]['nodes'])
-
+    for item in network_data[pagetitle]['edges']:
+        print(item)
+    
     sleep(1)
     SelectMenu()
-
 
 # Function 3: Build new network - first layer only. WORKS! (but very prelim, no checks, error handling etc what so ever. WIP.)
 def BuildNetwork():
 
-    # setup 
-    nodes = []
-    edges = []
-    
-    # resquesting wiki page to initiate.
-    pagetitle = input("Please provide a title of a Wikipedia page: ")
+    # resquesting name of node to download.
+    node_title = input("Please provide a title of a Wikipedia page: ")
 
-    # requesting data via wikimedia API.  
-    S = requests.Session()
-    PARAMS = {
-        "action": "query",
-        "format": "json",
-        "titles": pagetitle,
-        "prop": "links",
-        "plnamespace": 0, # only load wikipedia main/articles. 
-        "pllimit": 100 # can go up to 500. Go for max? 
-    }
-    response = S.get(url=API_ENDPOINT, params=PARAMS)
-    
-    # Transforming response to network data format.  
-    data_wiki = response.json()
-    page = next(iter(data_wiki['query']['pages']))
-        
-    for x in data_wiki['query']['pages'][page]['links']:
-        nodes.append(x['title'])
-        edges.append((pagetitle, x['title']))
-        
-    data_page = page, {'date': 'TODO', 'nodes': {1: nodes, 2: " " , 3:  " ", 4: " " }, 'edges': {1: edges, 2: " ", 3: " ", 4: " "} }
-    network_data[pagetitle] = data_page
-    
-    # Dumping data into file and saving. 
-    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
-        json.dump(network_data, outfile)
-        print("Data succesfully loaded and saved. Returning to main menu.")
-        sleep(1)
+    DownloadNode(node_title)
+    network_data[node_title]['ego'] = 1
 
 # Function 4: Append one level (or remainder of one level) to existing network. Includes a throttle.  TODO
 def AppendNetwork():
     os.system('clear')
-    print("AppendNetwork is not implemented yet. Returning to main menu.")
+    
+    node_title = input("Please provide a the title of a node included in " + DATA_FILE + ": ")
+
+    if node_title in network_data:
+
+       counter = 0       
+       node_requests = set(network_data[node_title]['edges']).difference(network_data.keys())
+
+       for item in node_requests: 
+           DownloadNode(item)
+           counter = counter + 1
+           if counter == LIMIT_API_REQUESTS: break 
+    
+    else: 
+        print("Title not present in " + DATA_FILE + ".")
+
     sleep(1)
     SelectMenu()
 
@@ -158,6 +180,16 @@ def UpdateRevisionsNetwork():
     print("UpdateRevisionsNetwork is not implemented yet. Returning to main menu.")
     sleep(1)
     SelectMenu()
+
+def SaveAndExit():
+    # Dumping data into file and saving. DONE 
+
+    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
+        json.dump(network_data, outfile)
+        print("Data succesfully saved. Exiting program.")
+        exit()
+    
+
     
 # NB: RUNTIME
 WikiNetworkDataMAIN()
