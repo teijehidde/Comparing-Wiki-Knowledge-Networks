@@ -11,6 +11,7 @@
 
 #Setup 
 import requests
+from flask import Flask, render_template, request
 import json
 import os
 from time import sleep
@@ -20,7 +21,7 @@ WIKI_URL = "https://en.wikipedia.org"
 API_ENDPOINT = WIKI_URL + "/w/api.php"
 LIMIT_LINKS_PER_NODE = 500
 LIMIT_API_REQUESTS = 100
-DATA_FILE = 'networkdata3.json'
+DATA_FILE = 'networkdata.json'
 
 # Check if json file "DATA_FILE" is present in folder. 
 def WikiNetworkDataMAIN():
@@ -87,25 +88,30 @@ def DownloadNode(node_title):
         "plnamespace": 0, # only load wikipedia main/articles. 
         "pllimit": 'max' # can go up to 500. Go for max? 
     }
+
+   
     response = S.get(url=API_ENDPOINT, params=PARAMS)
     
     # Transforming response to network data format.  
     data_wiki = response.json()
     node = next(iter(data_wiki['query']['pages']))
-        
-    for x in data_wiki['query']['pages'][node]['links']:
-        edges.append(x['title'])
-        
-    node_data = {'node_ID': node, 'ego': 0, 'date_time': 'TODO', 'edges': edges, 'revisions': 'TODO'}
-    network_data[node_title] = node_data
+    
+    try: 
+        for x in data_wiki['query']['pages'][node]['links']:
+            edges.append(x['title'])
+            
+        node_data = {'node_ID': node, 'ego': 0, 'date_time': 'TODO', 'edges': edges, 'revisions': 'TODO'}
+        network_data[node_title] = node_data
+    except:
+        print("An exception occured while accessing " + node_title + ".")
+    else: 
+        print("Links data on page " + node_title + " successfully downloaded.")
 
-    print("Links data on page " + node_title + " successfully downloaded.")
+        with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
+            json.dump(network_data, outfile)
+            print("Data succesfully saved.")
 
-    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
-        json.dump(network_data, outfile)
-        print("Data succesfully saved.")
-
-    sleep(0.5)
+    # sleep(0.5)
 
 # Function 1: Summary data in Json file. 
 def ListNetworks():
@@ -156,15 +162,22 @@ def AppendNetwork():
        counter = 0       
        node_requests = set(network_data[node_title]['edges']).difference(network_data.keys())
 
-       for item in node_requests: 
-           DownloadNode(item)
-           counter = counter + 1
-           if counter == LIMIT_API_REQUESTS: break 
+       if node_requests == None: 
+           print("All nodes have been downloaded.")
+       else: 
+           print("Link data from maximum of " + str(LIMIT_API_REQUESTS) + " pages will be downloaded.")
+           print("   ")
+       
+           for item in node_requests:
+               DownloadNode(item)
+               counter = counter + 1
+               print(counter)
+               if counter == LIMIT_API_REQUESTS: break            
     
     else: 
         print("Title not present in " + DATA_FILE + ".")
 
-    sleep(1)
+    # sleep(.1)
     SelectMenu()
 
 # Function 5: Checks for changes since last action on network and updates. TODO
