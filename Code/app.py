@@ -3,117 +3,58 @@
 """
     app.py
 
-    MediaWiki API Demos
-
-    User contributions feed app: Demp app that uses `list=usercontribs` module
-    to fetch the top 50 edits made by a user
-
-    MIT license
+    creates network graphs in flask app. 
+    Data is saved in json file create in fetch_data.py. 
+    To do 1: draw some graphs. // DONE. 
+    To do 2: Create class of node and network (cosisting of nodes) 
+    To do 3: Build flask app.    
+    Q: use numpy? 
 """
-
+# Setup 
 from flask import Flask, render_template, request
+import os
+import pygraphviz as pgv
 import networkx as nx
 import requests
 import json
 
-WIKI_URL = "https://en.wikipedia.org"
-API_ENDPOINT = WIKI_URL + "/w/api.php"
+PATH = "/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/"
+DATA_FILE = 'networkdata.json'
 
-"""
-# App config.
-DEBUG = True
-APP = Flask(__name__)
-APP.config['SECRET_KEY'] = 'enter_your_secret_key'
-
-
-@APP.route("/", methods=['GET'])
-def index():
-    pagename = request.args.get('pagename')
-
-    if pagename is not None:
-        data = get_user_contribs(pagename)
-    else:
-        data = None
-
-    return render_template('page_links.html', data=data, \
-        pagename=pagename, wikiurl=WIKI_URL)
-"""
-
-def get_ego_network(pagetitle):
-    """ Fetch links via MediaWiki API's links module """
-    nodes = set()
-    edges = []
-    params = {
-        "action": "query",
-        "format": "json",
-        "titles": pagetitle,
-        "prop": "links"
-    }
-
-    response = requests.get(url=API_ENDPOINT, params=params)
+# load data file. 
+def WikiNetworkDrawingMAIN():
     
-    data = response.json()
-    page = next(iter(data['query']['pages']))
-    
-    for x in data['query']['pages'][page]['links']: 
-        nodes.add(x['title'])
-        edges.append((pagetitle, x['title']))
-    
-    return{'ego': [pagetitle], 'nodes': nodes, 'edges': edges}
+    os.system('clear')
 
-# NB: Have to create links of links - to a certain depth... 
+    try:
+        with open(PATH + DATA_FILE) as json_file:
+            global network_data
+            network_data = json.load(json_file)
+    except IOError:
+        print("Error: Could not find " + DATA_FILE + ". Please check if file is present in directory, or change DATA_FILE value.")
+    else: 
+        print("The file " + DATA_FILE + " found, succesfully loaded.")
 
-def get_edges_of_edges(egonetwork):
-
-    for x in egonetwork['nodes']: 
-        
-        data = get_ego_network(x)
-        egonetwork['ego'].append(x) 
-        # NB: concatenating two sets... 
-        egonetwork['nodes'] =  egonetwork['nodes'] | data['nodes']
-        # NB: and concatenating two lists... 
-        egonetwork['edges'].append(data['edges'])
-        
-    
-    return(egonetwork)
+# initiate class nodes. Attributes: title, edges. Methods: ??   
+class Node:
+    def __init__(self,title,edges):
+        self.title = title
+        self.nodes = network_data[title]['edges']
+        self.edges = {title: network_data[title]['edges']}
 
 
-""" DOWNLOAD DATA ONE LEVEL DEEP """ 
-
-data = get_ego_network("Bergen")
-# data = get_edges_of_edges(data)
-
-json.dump(data, f, ensure_ascii=False, indent=4)
+# initiate class network. -- 
 
 
+# Quick first use of pygraphviz to build a graph. 
+d = {"1": {"2": None}, "2": {"1": None, "3": None}, "3": {"2": None}}
 
-# draw the graph using PyGraphviz, analysis can be done through networkx package.  
+G = pgv.AGraph(d)
+s = G.string()
+G.write(PATH + "test.dot") 
+G.layout(prog="dot") 
+G.draw(PATH + "test.png")
 
+# RUNTIME 
+WikiNetworkDrawingMAIN()
 
-
-# print(result)
-
-
-"""
-   for employee,hours in work_hours:
-        if hours > current_max:
-            current_max = hours
-            employee_of_month = employee
-        else:
-            pass
-"""
-
-# def create_graph_list(pagelinks): 
-#     """construct list of edges that can be used in networkx""" 
-
-
-
-
-
-# print(type(result['prop']))
-
-# print(data['links'])
-"""
-if __name__ == '__main__':
-    APP.run()
-"""

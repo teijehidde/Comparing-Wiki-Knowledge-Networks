@@ -17,11 +17,13 @@ import os
 from time import sleep
 from datetime import date
 
+PATH = '/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/'
+DATA_FILE = 'networkdata.json'
 WIKI_URL = "https://en.wikipedia.org"
 API_ENDPOINT = WIKI_URL + "/w/api.php"
 LIMIT_LINKS_PER_NODE = 500
 LIMIT_API_REQUESTS = 100
-DATA_FILE = 'networkdata.json'
+
 
 # Check if json file "DATA_FILE" is present in folder. 
 def WikiNetworkDataMAIN():
@@ -29,7 +31,7 @@ def WikiNetworkDataMAIN():
     os.system('clear')
 
     try:
-        with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE) as json_file:
+        with open(PATH + DATA_FILE) as json_file:
             global network_data
             network_data = json.load(json_file)
     except IOError:
@@ -107,7 +109,7 @@ def DownloadNode(node_title):
     else: 
         print("Links data on page " + node_title + " successfully downloaded.")
 
-        with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
+        with open(PATH + DATA_FILE, 'w') as outfile:
             json.dump(network_data, outfile)
             print("Data succesfully saved.")
 
@@ -197,7 +199,7 @@ def UpdateRevisionsNetwork():
 def SaveAndExit():
     # Dumping data into file and saving. DONE 
 
-    with open('/home/teijehidde/Documents/Git Blog and Coding/Project one (wikipedia SNA)/Code/' + DATA_FILE, 'w') as outfile:
+    with open(PATH + DATA_FILE, 'w') as outfile:
         json.dump(network_data, outfile)
         print("Data succesfully saved. Exiting program.")
         exit()
