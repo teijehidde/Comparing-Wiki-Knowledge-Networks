@@ -1,0 +1,116 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 2000px;
+            height: 2000px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"id": "Religie", "label": "Religie", "name": "Religie", "shape": "dot", "size": 10}, {"id": "God (algemeen)", "label": "God (algemeen)", "name": "God (algemeen)", "shape": "dot", "size": 10}, {"id": "La\u00efcisme", "label": "La\u00efcisme", "name": "La\u00efcisme", "shape": "dot", "size": 10}, {"id": "Wetenschap", "label": "Wetenschap", "name": "Wetenschap", "shape": "dot", "size": 10}, {"id": "Rooms-katholieke Kerk", "label": "Rooms-katholieke Kerk", "name": "Rooms-katholieke Kerk", "shape": "dot", "size": 10}, {"id": "Scheiding van kerk en staat", "label": "Scheiding van kerk en staat", "name": "Scheiding van kerk en staat", "shape": "dot", "size": 10}, {"id": "Secularisatie", "label": "Secularisatie", "name": "Secularisatie", "shape": "dot", "size": 10}, {"id": "Secularisering", "label": "Secularisering", "name": "Secularisering", "shape": "dot", "size": 10}, {"id": "Ontzuiling", "label": "Ontzuiling", "name": "Ontzuiling", "shape": "dot", "size": 10}, {"id": "Wereld (christendom)", "label": "Wereld (christendom)", "name": "Wereld (christendom)", "shape": "dot", "size": 10}, {"id": "Wereldlijk gezag", "label": "Wereldlijk gezag", "name": "Wereldlijk gezag", "shape": "dot", "size": 10}, {"id": "Antisacerdotalisme", "label": "Antisacerdotalisme", "name": "Antisacerdotalisme", "shape": "dot", "size": 10}, {"id": "De Verlichting", "label": "De Verlichting", "name": "De Verlichting", "shape": "dot", "size": 10}, {"id": "Staat (politiek)", "label": "Staat (politiek)", "name": "Staat (politiek)", "shape": "dot", "size": 10}]);
+        edges = new vis.DataSet([{"from": "Religie", "to": "God (algemeen)", "weight": 1}, {"from": "Religie", "to": "La\u00efcisme", "weight": 1}, {"from": "Religie", "to": "Wetenschap", "weight": 1}, {"from": "Wetenschap", "to": "God (algemeen)", "weight": 1}, {"from": "Rooms-katholieke Kerk", "to": "La\u00efcisme", "weight": 1}, {"from": "Scheiding van kerk en staat", "to": "La\u00efcisme", "weight": 1}, {"from": "Scheiding van kerk en staat", "to": "Secularisatie", "weight": 1}, {"from": "Scheiding van kerk en staat", "to": "Secularisering", "weight": 1}, {"from": "Secularisering", "to": "Secularisatie", "weight": 1}, {"from": "Secularisering", "to": "La\u00efcisme", "weight": 1}, {"from": "Secularisering", "to": "Ontzuiling", "weight": 1}, {"from": "Secularisering", "to": "Wereld (christendom)", "weight": 1}, {"from": "Wereld (christendom)", "to": "Wereldlijk gezag", "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "barnesHut": {
+            "avoidOverlap": 0,
+            "centralGravity": 0.3,
+            "damping": 0.09,
+            "gravitationalConstant": -80000,
+            "springConstant": 0.001,
+            "springLength": 250
+        },
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+	 
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>
