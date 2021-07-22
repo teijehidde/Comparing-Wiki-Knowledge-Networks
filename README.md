@@ -17,10 +17,9 @@ Regarding API, see Wikipedia API websites:
 
 ## TODOs:
 -------
-1. Create a Wiki-graph class, based on networkx nx.Graph instance. It should have method to call status graph (no. of nodes, edges, etc; analysis on individual nodes and clusters in the graph) and include visualisation of graph. All this should be build using networkx, pyvis and numpy.
-2. [DONE] Revise API call to act at network (not node) level, and based completely on generators. -- see website from wikipedia. Also consider implementing zipping.
-3. [DONE] API should check what language a topic is available in.
-4. [DONE] Write function to download network in specific additional language.
+1. [DONE] Revise API call to act at network (not node) level, and based completely on generators. -- see website from wikipedia. Also consider implementing zipping.
+2. [DONE] API should check what language a topic is available in.
+3. [DONE] Write function to download network in specific additional language.
 4. [DONE] Restructure (again) how data is saved. a) The 'plcontinue value' should NOT be linked to node (similar to how wikimedia treats it). b) Implement timestamp c) save the Wikipedia version (english, french, arabic) that data is from.
 5. [WIP] Start playing around with comparing knowledge networks around topics _in different languages_. Cross case comparison on same topic.
 6. [ASK Neci] Start playing with Django for building interacting website to visualize descriptive analysis. On the face of it Django seems more straighforward than Flask.
