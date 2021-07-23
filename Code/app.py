@@ -20,14 +20,15 @@ from pyvis.network import Network
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_cytoscape as cyto
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 import plotly.express as px
 import pandas as pd
 
 # setup layout and paths
-path = "/home/teijehidde/Documents/Git Blog and Coding/Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/"
-data_file = "DATA_THD.json" 
+path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
+data_file = "DATA.json" 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 styles = {
@@ -101,23 +102,24 @@ class WikiNetwork(WikiNode):
                 self.network_edges = self.network_edges + purged_edges
         except: 
             pass
-        self.nodes_count = Counter(self.network_nodes)              
-                
-    def getNodes(self,threshold=0):
-        selected_nodes = [k for k,v in self.nodes_count.items() if float(v) >= threshold]
-        nodes_network = []
+        self.links_count = Counter(self.network_links)
 
-        for node in selected_nodes:
-            node_tuple = (node, {"name": node})
-            nodes_network.append(node_tuple)
+    def getNodes(self, type="cytoscape", threshold=0):
+        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= threshold]
+        
+        if type == 'networkx':
+            return [(i, {"name": i}) for i in selected_nodes]
+        if type == 'cytoscape':
+            return [{'data': {'id': i, "label": i}} for i in selected_nodes]
 
-        return nodes_network
-
-    def getEdges(self,threshold=0):
-        selected_nodes = [k for k,v in self.nodes_count.items() if float(v) >= threshold]
+    def getEdges(self,type="cytoscape", threshold=0):  
+        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= threshold]
         edges_network = [(a,b) for a,b in self.network_edges if a in selected_nodes and b in selected_nodes]
-
-        return edges_network
+        
+        if type == 'networkx':
+            return edges_network
+        if type == 'cytoscape':
+            return [{'data': {'source': a, "target": b}} for a,b in edges_network]
 
     def getStatsNetwork(self): 
         # TODO: return a dictionary with stats on network: 
@@ -155,7 +157,11 @@ class WikiNetwork(WikiNode):
         title = name + ".html"
         netdraw.show(title) 
 
+cyto.load_extra_layouts()
 all_networks = getDownloadedNetworks()
+wiki_network_object = WikiNetwork('Oxford', 'fr')
+Nodes_cyto = wiki_network_object.getNodes(type='cytoscape', threshold=5)
+Edges_cyto = wiki_network_object.getEdges(type='cytoscape', threshold=5)
 
 app.layout = html.Div([
     dcc.Store(id='memory-output'), 
@@ -180,6 +186,34 @@ app.layout = html.Div([
     #], style={'width': '10%', 'float': 'right', 'padding': 10, 'display': 'inline-block'}), 
     dcc.Tabs(id='tabs-list', value = None),
     html.Div(id='tabs-example-content'),
+    html.Div([
+        cyto.Cytoscape(
+            id='cytoscape-network-graph',
+            layout={'name': 'cose',
+            'animate': True,
+            'randomize': True, 
+            'gravity': 1
+            }, # cose, ... 
+            style={'width': '50%', 'height': '600px'},
+            elements=Nodes_cyto+Edges_cyto,
+            stylesheet=[{
+            'selector': 'node',
+            'style': {
+                'content': '', # data(label)
+                'shape': 'ellipse',
+                'width': .2,
+                'height': .2,
+                'background-color': 'black',
+                'padding': '50%'
+            }}, 
+            {'selector': 'edge',
+            'style': {
+                'curve-style': 'haystack', # bezier
+                'width': .01
+                #'height': .1
+            }}
+        ])
+        ]),
     html.Div(id='tabs-content'), 
     html.Div(className='row', children=[ 
         html.Div(
