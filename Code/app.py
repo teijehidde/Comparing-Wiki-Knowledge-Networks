@@ -2,7 +2,8 @@
 # packages needed for downloading, saving and loading data 
 import os
 from collections import Counter
-import collections 
+import collections
+from dash_bootstrap_components._components.Col import Col 
 import requests
 import json
 
@@ -19,6 +20,7 @@ from pyvis.network import Network
 # Dash packages for presentation analysis  
 import dash
 import dash_core_components as dcc
+import dash_bootstrap_components as dbc
 import dash_html_components as html
 import dash_cytoscape as cyto
 from dash.dependencies import Input, Output
@@ -30,7 +32,7 @@ import pandas as pd
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
 data_file = "DATA.json" 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
     'pre': {
         'border': 'thin lightgrey solid',
@@ -157,69 +159,72 @@ class WikiNetwork(WikiNode):
         title = name + ".html"
         netdraw.show(title) 
 
-cyto.load_extra_layouts()
 all_networks = getDownloadedNetworks()
-wiki_network_object = WikiNetwork('Oxford', 'fr')
-Nodes_cyto = wiki_network_object.getNodes(type='cytoscape', threshold=5)
-Edges_cyto = wiki_network_object.getEdges(type='cytoscape', threshold=5)
+
+navbar = html.Div(
+    [
+        dbc.Card(
+            dbc.Row(
+                [
+                    dbc.Col(html.Div([dcc.Dropdown(
+                        id='selected-network',
+                        options= [{'label': k, 'value': k} for k in all_networks.keys()]
+                        ),
+                        ]), width = 3
+                    ),
+                    dbc.Col(html.Div([dcc.Dropdown(
+                        id='language-options',
+                        multi=True
+                        ),
+                        ]), width= 6
+                    ),
+                ], justify="center", 
+        ), body = True
+        ), 
+    ]
+)
+
+tabs = html.Div(
+    dbc.Card(
+        dbc.CardBody(    
+                    [
+                        dcc.Tabs(id='tabs-list', value = None),
+                        dbc.Card(
+                            dbc.CardBody( 
+                                [
+                                html.Div(id='tabs-content'),
+                            ] )), 
+                    ]
+            )
+        )  
+)
 
 app.layout = html.Div([
     dcc.Store(id='memory-output'), 
-    html.Div([
-        dcc.Dropdown(
-        id='selected-network',
-        options=
-            [{'label': k, 'value': k} for k in all_networks.keys()]
-        ),
-    ], style={'width': '25%', 'float': 'left', 'padding': 10, 'display': 'inline-block'}), 
-    html.Div([
-        dcc.Dropdown(
-        id='language-options',
-            multi=True
-        ),
-    ], style={'width': '60%', 'float': 'middle', 'padding': 10, 'display': 'inline-block'}),
-    #html.Div([
-        #html.Button(
-        #children='Submit',
-        #id='submit-val', 
-        #n_clicks = 0)
-    #], style={'width': '10%', 'float': 'right', 'padding': 10, 'display': 'inline-block'}), 
-    dcc.Tabs(id='tabs-list', value = None),
-    html.Div(id='tabs-example-content'),
-    html.Div([
-        cyto.Cytoscape(
-            id='cytoscape-network-graph',
-            layout={'name': 'cose',
-            'animate': True,
-            'randomize': True, 
-            'gravity': 1
-            }, # cose, ... 
-            style={'width': '50%', 'height': '600px'},
-            elements=Nodes_cyto+Edges_cyto,
-            stylesheet=[{
-            'selector': 'node',
-            'style': {
-                'content': '', # data(label)
-                'shape': 'ellipse',
-                'width': .2,
-                'height': .2,
-                'background-color': 'black',
-                'padding': '50%'
-            }}, 
-            {'selector': 'edge',
-            'style': {
-                'curve-style': 'haystack', # bezier
-                'width': .01
-                #'height': .1
-            }}
-        ])
-        ]),
-    html.Div(id='tabs-content'), 
-    html.Div(className='row', children=[ 
-        html.Div(
-        children='Enter a value and press submit',
-        id='container-basic')
-    ])
+    navbar,
+    tabs,
+    html.Div(
+    [
+        dbc.Card(
+                    [
+                        dbc.CardHeader("Introduction to the app."),
+                        dbc.CardBody(
+                            [
+                                html.H4("Introduction", className="card-title"),
+                                html.H6("How does this app work?", className="card-subtitle"),
+                                html.P(
+                                "Here is a brief one, two, three steps explaining how the app works.",
+                                className="card-text",
+                                ),
+                                dbc.CardLink("Card link", href="#"),
+                                dbc.CardLink("External link", href="https://google.com"),
+                            ]
+                        ),
+                    dbc.CardFooter("Consider donating to WIkipedia. See here: LINK HERE.")
+                ], style={"width": "100%"},
+            )
+    ]
+    )
 ])
     
 @app.callback(
@@ -238,14 +243,131 @@ def render_tabs(value):
 @app.callback(Output('tabs-content', 'children'),
               Input('tabs-list', 'value'))
 def render_content_tabs(value):
-    if value == None: 
-        return "Please select an option and tab from above."
-    else:
-        object_test = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+        selected_wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
 
-        return "This is a second test: {}".format(
-            object_test.nodes_count
+        Nodes_cyto = selected_wiki_page.getNodes(type='cytoscape', threshold=5)
+        Edges_cyto = selected_wiki_page.getEdges(type='cytoscape', threshold=5)
+
+        return (
+            dbc.Row([
+                dbc.Card(
+                    dbc.CardBody(
+                        [
+                            cyto.Cytoscape(
+                            id='cytoscape-network-graph',
+                            layout={'name': 'cose',
+                            'animate': True,
+                            'randomize': True, 
+                            'gravity': 1
+                            }, # cose, ... 
+                            style={'width': '100%', 'height': '600px'},
+                            elements=Nodes_cyto+Edges_cyto,
+                            stylesheet=[{
+                            'selector': 'node',
+                            'style': {
+                                'content': '', # data(label)
+                                'shape': 'ellipse',
+                                'width': .2,    
+                                'height': .2,
+                                'background-color': 'black',
+                                'padding': '50%'
+                            }}, 
+                            {'selector': 'edge',
+                            'style': {
+                                'curve-style': 'haystack', # bezier
+                                'width': .01
+                                #'height': .1
+                            }}
+                        ]),
+                            html.Div(
+                                [
+                                    dbc.Row(
+                                    [
+                                        dbc.Col(
+                                            [
+                                                dcc.RangeSlider(
+                                                    min=0,
+                                                    max=100,
+                                                    step=5,
+                                                    marks={
+                                                        0: '0%',
+                                                        25: '25%',
+                                                        50: '50%',
+                                                        75: '75%',
+                                                        100: '100%'
+                                                    },
+                                                    value=[20, 100],
+                                                ),
+                                            ], width = 9, 
+                                        ),
+                                        dbc.Col(
+                                            [
+                                                dbc.Button("Update", outline=True, color="primary", className="mr-1"), 
+                                            ], width = 3, 
+                                        )
+                                    ]
+                                )
+                                ], style={"width": "100%"}
+, 
+                            )
+                        ]
+                    ), style={"width": "40%"},
+                ),
+                dbc.Card(
+                    dbc.CardBody(
+                            [dbc.Col(
+                                [dbc.Card(
+                                    dbc.CardBody(
+                                            [
+                                                html.H6("Data on selected node:")
+                                            ]
+                                        ), 
+                                ),
+                                dbc.Card(
+                                    dbc.CardBody(
+                                            [
+                                                html.H6("Data on community of selected node:")
+                                            ]
+                                        ), 
+                                ),
+                                dbc.Card(
+                                    dbc.CardBody(
+                                            [
+                                                html.H6("Data on network:")
+                                            ]
+                                        ), 
+                                )
+                                ]
+                            ),
+                            ]
+                    ), style={"width": "60%"},
+                    )
+        ])
     )
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+
+
+"""    html.Div(
+        [
+        dcc.Dropdown(
+        id='selected-network',
+        options=
+            [{'label': k, 'value': k} for k in all_networks.keys()]
+        ),
+    ], style={'width': '25%', 'float': 'left', 'padding': 10, 'display': 'inline-block'}), 
+    html.Div([
+        dcc.Dropdown(
+        id='language-options',
+            multi=True
+        ),
+    ], style={'width': '60%', 'float': 'middle', 'padding': 10, 'display': 'inline-block'}),
+"""
+    #html.Div([
+        #html.Button(
+        #children='Submit',
+        #id='submit-val', 
+        #n_clicks = 0)
+    #], style={'width': '10%', 'float': 'right', 'padding': 10, 'display': 'inline-block'}), 
