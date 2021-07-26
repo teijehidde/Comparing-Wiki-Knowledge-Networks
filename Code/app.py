@@ -4,8 +4,9 @@ import os
 from collections import Counter
 import collections
 from dash_bootstrap_components._components.Col import Col 
-import requests
 import json
+import pandas as pd
+import numpy as np
 
 # packages for creation classes and network analysis 
 import networkx as nx
@@ -23,10 +24,11 @@ import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import dash_cytoscape as cyto
+import dash_table
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 import plotly.express as px
-import pandas as pd
+
 
 # setup layout and paths
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
@@ -49,9 +51,6 @@ with open(path + data_file) as json_file:
 # function: provide titles of networks that are saved in the JSON file. Also provides the language they were saved in. 
 def getDownloadedNetworks():
 
-    with open(path + data_file) as json_file:
-        network_data = json.load(json_file)
-
     # create set of ego network names.  
     downloaded_networks = [(v['ego']) for (k,v) in network_data.items()]
     downloaded_networks = set(list(chain(*downloaded_networks)))
@@ -66,9 +65,6 @@ def getDownloadedNetworks():
 # Initiate class Node. 
 class WikiNode:
     def __init__(self, node_title, lang):
-        
-       # with open(path + data_file) as json_file:
-       #     network_data = json.load(json_file)
 
         # Select node in JSON file (by title and language). 
         node_data = [v for (k,v) in network_data.items() if v['title'] == node_title if v['language'] == lang][0]
@@ -123,15 +119,12 @@ class WikiNetwork(WikiNode):
         if type == 'cytoscape':
             return [{'data': {'source': a, "target": b}} for a,b in edges_network]
 
-    def getStatsNetwork(self): 
-        # TODO: return a dictionary with stats on network: 
-        # - triangles
-        # - degree_centrality 
-        # - ... 
+    def getCommunities(self,threshold=0):  
+        G = nx.Graph()
+        G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
+        return greedy_modularity_communities(G)
 
-        print('WIP')
-
-    def getStatsNodes(self, nodes):
+    def getStatsNode(self, node):
         # TODO: return an numpy array with stats per node: 
         # - triangles
         # - degree_centrality 
@@ -141,23 +134,33 @@ class WikiNetwork(WikiNode):
 
         print('WIP')
     
-    def getNetworkCommunities(self,threshold=0):
-        # TODO: return an numpy array with stats per community. Add in an overall library.  
-        G = nx.Graph()
-        G.add_edges_from(self.getEdges(threshold))
-        
-        return greedy_modularity_communities(G)
+    def getStatsCommunities(self, node):
+        # TODO: return an numpy array with stats per node: 
+        # - triangles
+        # - degree_centrality 
+        # - ... 
+        # if nodes == None: 
+          #  node = self.node_links
+
+        print('WIP')
     
-    def drawGraph(self,threshold=0,name='no_name'):
-        G = nx.Graph()
-        G.add_edges_from(self.getEdges(threshold))
-
-        netdraw = Network('2000px', '2000px')
-        netdraw.from_nx(G)
-        netdraw.barnes_hut()
-
-        title = name + ".html"
-        netdraw.show(title) 
+    def getStatsNetwork(self): 
+        return(
+            pd.DataFrame(
+                {
+                    "A": self.node_ID,
+                    "B": pd.Timestamp("20200102"),
+                    "C": pd.Series(1, index=list(range(4)), dtype="float32"),
+                    "D": np.array([3] * 4, dtype="int32"),
+                    "E": pd.Categorical(["test", "train", "test", "train"]),
+                    "F": self.node_title,
+                }
+                )
+            )   
+        # TODO: return a dictionary with stats on network: 
+        # - triangles
+        # - degree_centrality 
+        # - ...
 
 all_networks = getDownloadedNetworks()
 
@@ -199,11 +202,7 @@ tabs = html.Div(
         )  
 )
 
-app.layout = html.Div([
-    dcc.Store(id='memory-output'), 
-    navbar,
-    tabs,
-    html.Div(
+overview = html.Div(
     [
         dbc.Card(
                     [
@@ -225,8 +224,14 @@ app.layout = html.Div([
             )
     ]
     )
+
+app.layout = html.Div([
+    # dcc.Store(id='memory-output'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
+    navbar,
+    tabs,
+    overview
 ])
-    
+
 @app.callback(
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
@@ -245,8 +250,12 @@ def render_tabs(value):
 def render_content_tabs(value):
         selected_wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
 
-        Nodes_cyto = selected_wiki_page.getNodes(type='cytoscape', threshold=5)
-        Edges_cyto = selected_wiki_page.getEdges(type='cytoscape', threshold=5)
+        Nodes_cyto = selected_wiki_page.getNodes(type='cytoscape', threshold=2)
+        Edges_cyto = selected_wiki_page.getEdges(type='cytoscape', threshold=2)
+        network_stats_df = selected_wiki_page.getStatsNetwork()
+        network_communities = selected_wiki_page.getCommunities()
+        network_communities_0 = ''.join([('[label = "{}"],'.format(i)) for i in network_communities[0]])
+        network_communities_0 = network_communities_0.rstrip(network_communities_0[-1])
 
         return (
             dbc.Row([
@@ -254,7 +263,7 @@ def render_content_tabs(value):
                     dbc.CardBody(
                         [
                             cyto.Cytoscape(
-                            id='cytoscape-network-graph',
+                            id='cytoscape-graph',
                             layout={'name': 'cose',
                             'animate': True,
                             'randomize': True, 
@@ -265,13 +274,19 @@ def render_content_tabs(value):
                             stylesheet=[{
                             'selector': 'node',
                             'style': {
-                                'content': '', # data(label)
+                                'content': '',
                                 'shape': 'ellipse',
                                 'width': .2,    
                                 'height': .2,
                                 'background-color': 'black',
                                 'padding': '50%'
-                            }}, 
+                            }},
+                            {'selector': network_communities_0, # network_communities_0, # '[label = "Eisenbahn"],[label = "Grenoble"]',
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': 'red',
+                            }},
                             {'selector': 'edge',
                             'style': {
                                 'curve-style': 'haystack', # bezier
@@ -319,7 +334,8 @@ def render_content_tabs(value):
                                 [dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on selected node:")
+                                                html.H6("Data on selected node:"),
+                                                html.Pre(id='cytoscape-tapNodeData-json', style=styles['pre'])
                                             ]
                                         ), 
                                 ),
@@ -333,7 +349,8 @@ def render_content_tabs(value):
                                 dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on network:")
+                                                html.H6("Data on network:"),
+                                                dbc.Table.from_dataframe(network_stats_df, striped=True, bordered=True, hover=True), 
                                             ]
                                         ), 
                                 )
@@ -344,6 +361,11 @@ def render_content_tabs(value):
                     )
         ])
     )
+
+@app.callback(Output('cytoscape-tapNodeData-json', 'children'),
+              Input('cytoscape-graph', 'tapNodeData'))
+def displayTapNodeData(data):
+    return json.dumps(data, indent=2)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
