@@ -249,13 +249,26 @@ def render_tabs(value):
               Input('tabs-list', 'value'))
 def render_content_tabs(value):
         selected_wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+        community_colours = ['red', 'blue', 'orange', 'green', 'purple', 'olive', 'brown', 'maroon', 'lime', 'teal'] 
 
         Nodes_cyto = selected_wiki_page.getNodes(type='cytoscape', threshold=2)
         Edges_cyto = selected_wiki_page.getEdges(type='cytoscape', threshold=2)
+
         network_stats_df = selected_wiki_page.getStatsNetwork()
+        
         network_communities = selected_wiki_page.getCommunities()
-        network_communities_0 = ''.join([('[label = "{}"],'.format(i)) for i in network_communities[0]])
-        network_communities_0 = network_communities_0.rstrip(network_communities_0[-1])
+        def get_selectors(number):
+            try: 
+                list_selectors = ''.join([('[label = "{}"],'.format(i)) for i in network_communities[number]])
+                return (list_selectors.rstrip(list_selectors[-1]))
+            except: 
+                return ('[label = " "]') 
+        def get_colour(number):
+            try: 
+                list_selectors = ''.join([('[label = "{}"],'.format(i)) for i in network_communities[number]])
+                return community_colours[number]
+            except: 
+                return ('White')
 
         return (
             dbc.Row([
@@ -276,21 +289,75 @@ def render_content_tabs(value):
                             'style': {
                                 'content': '',
                                 'shape': 'ellipse',
-                                'width': .2,    
-                                'height': .2,
+                                'width': .5,    
+                                'height': .5,
                                 'background-color': 'black',
                                 'padding': '50%'
                             }},
-                            {'selector': network_communities_0, # network_communities_0, # '[label = "Eisenbahn"],[label = "Grenoble"]',
+                            {'selector': get_selectors(0),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': 'red',
-                            }},
+                                'background-color': get_colour(0),
+                             }},
+                            {'selector': get_selectors(1),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(1),
+                             }},
+                            {'selector': get_selectors(2),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(2),
+                             }},
+                            {'selector': get_selectors(3),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(3),
+                             }},
+                            {'selector': get_selectors(4),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(4),
+                             }},
+                            {'selector': get_selectors(5),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(5),
+                             }},
+                            {'selector': get_selectors(6),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(6),
+                             }},
+                            {'selector': get_selectors(7),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(7),
+                             }},
+                            {'selector': get_selectors(8),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(8),
+                             }},
+                            {'selector': get_selectors(9),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-color': get_colour(9),
+                             }},
                             {'selector': 'edge',
                             'style': {
                                 'curve-style': 'haystack', # bezier
-                                'width': .01
+                                'width': .03
                                 #'height': .1
                             }}
                         ]),
