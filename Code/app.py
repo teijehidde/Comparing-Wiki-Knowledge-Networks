@@ -5,18 +5,30 @@ from collections import Counter
 import collections
 from dash_bootstrap_components._components.Col import Col 
 import json
+from networkx.algorithms.traversal.depth_first_search import dfs_labeled_edges
 import pandas as pd
 import numpy as np
 
 # packages for creation classes and network analysis 
 import networkx as nx
 from itertools import chain
-import communities
-from networkx.algorithms import approximation
-from networkx.algorithms import community
-from networkx.algorithms.community import k_clique_communities
+# import communities
+# from networkx.algorithms import approximation
+# from networkx.algorithms import community
 from networkx.algorithms.community import greedy_modularity_communities
-from pyvis.network import Network
+from networkx.utils import not_implemented_for 
+__all__ = [
+    "eccentricity",
+    "diameter",
+    "radius",
+    "periphery",
+    "center",
+    "barycenter",
+    "degree_centrality",
+    "constraint", 
+    "local_constraint", 
+    "effective_size"
+]
 
 # Dash packages for presentation analysis  
 import dash
@@ -25,7 +37,7 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 import dash_cytoscape as cyto
 import dash_table
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import plotly.express as px
 
@@ -61,6 +73,49 @@ def getDownloadedNetworks():
     for network in downloaded_networks: 
         items[network['title'] + ' (' + network['language'] + ')'] = {'lang':  network['language'], '*': network['title']}    
     return(items)
+
+def degree_centrality(G):
+# function copy-pasted from: https://networkx.org/documentation/stable/_modules/networkx/algorithms/centrality/degree_alg.html#degree_centrality
+    
+    if len(G) <= 1:
+        return {n: 1 for n in G}
+
+    s = 1.0 / (len(G) - 1.0)
+    centrality = {n: d * s for n, d in G.degree()}
+    return centrality
+
+def eccentricity(G, v=None, sp=None):
+# function copy-pasted from: https://networkx.org/documentation/stable/_modules/networkx/algorithms/distance_measures.html#eccentricity
+
+    order = G.order()
+
+    e = {}
+    for n in G.nbunch_iter(v):
+        if sp is None:
+            length = nx.single_source_shortest_path_length(G, n)
+            L = len(length)
+        else:
+            try:
+                length = sp[n]
+                L = len(length)
+            except TypeError as e:
+                raise nx.NetworkXError('Format of "sp" is invalid.') from e
+        if L != order:
+            if G.is_directed():
+                msg = (
+                    "Found infinite path length because the digraph is not"
+                    " strongly connected"
+                )
+            else:
+                msg = "Found infinite path length because the graph is not" " connected"
+            raise nx.NetworkXError(msg)
+
+        e[n] = max(length.values())
+
+    if v in G:
+        return e[v]  # return single value
+    else:
+        return e
 
 # Initiate class Node. 
 class WikiNode:
@@ -124,15 +179,18 @@ class WikiNetwork(WikiNode):
         G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
         return greedy_modularity_communities(G)
 
-    def getStatsNode(self, node):
-        # TODO: return an numpy array with stats per node: 
-        # - triangles
-        # - degree_centrality 
-        # - ... 
-        # if nodes == None: 
-          #  node = self.node_links
+    def getStatsNodes(self, threshold = 0):
+        G = nx.Graph()
+        G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
 
-        print('WIP')
+        data = {}
+        degree_centrality_nodes = degree_centrality(G)
+        eccentricity_nodes = eccentricity(G)
+
+        for item in G.nodes: 
+            data[item] = {'Centrality': degree_centrality_nodes[item], 'Eccentricity': eccentricity_nodes[item]} 
+
+        return(data)
     
     def getStatsCommunities(self, node):
         # TODO: return an numpy array with stats per node: 
@@ -226,7 +284,7 @@ overview = html.Div(
     )
 
 app.layout = html.Div([
-    # dcc.Store(id='memory-output'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
+    dcc.Store(id='memory-selected-networks'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
     navbar,
     tabs,
     overview
@@ -245,30 +303,41 @@ def set_network_options(selected_network):
 def render_tabs(value):
     return [dcc.Tab(label = i, value = i) for i in value] 
 
+# NB! 
+@app.callback(Output('memory-selected-networks', 'data'),
+              Input('tabs-list', 'value'))     
+def create_wiki_network(value):         
+    return WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+
 @app.callback(Output('tabs-content', 'children'),
-              Input('tabs-list', 'value'))
-def render_content_tabs(value):
-        selected_wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-        community_colours = ['red', 'blue', 'orange', 'green', 'purple', 'olive', 'brown', 'maroon', 'lime', 'teal'] 
-
-        Nodes_cyto = selected_wiki_page.getNodes(type='cytoscape', threshold=2)
-        Edges_cyto = selected_wiki_page.getEdges(type='cytoscape', threshold=2)
-
-        network_stats_df = selected_wiki_page.getStatsNetwork()
+            [Input('memory-selected-networks', 'data'),
+            Input('tabs-list', 'value')])  #, 
+            # [State('tabs-content', 'children')])
+def render_content_tabs(data, value):
         
-        network_communities = selected_wiki_page.getCommunities()
-        def get_selectors(number):
+        wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+
+        nodes = wiki_page.getNodes(type='cytoscape', threshold=4)
+        edges = wiki_page.getEdges(type='cytoscape', threshold=4)
+        communities = wiki_page.getCommunities()
+
+        stats_nodes = wiki_page.getStatsNodes(threshold=4)
+        network_stats_df = wiki_page.getStatsNetwork()
+
+        def get_selectors_centrality(number):
+            tuple_node_centrality = {(k,v['Centrality']) for k, v in stats_nodes.items() } 
+            tuple_node_centrality = sorted(tuple_node_centrality, key= lambda node: node[1])
+            tuple_node_centrality_split = np.array_split(tuple_node_centrality, 5)
+
+            list_selectors = ''.join([('[label = "{}"],'.format(i[0])) for i in tuple_node_centrality_split[number]])
+            return(list_selectors.rstrip(list_selectors[-1]))
+
+        def get_selectors_communities(number):
             try: 
-                list_selectors = ''.join([('[label = "{}"],'.format(i)) for i in network_communities[number]])
+                list_selectors = ''.join([('[label = "{}"],'.format(i)) for i in communities[number]])
                 return (list_selectors.rstrip(list_selectors[-1]))
             except: 
                 return ('[label = " "]') 
-        def get_colour(number):
-            try: 
-                list_selectors = ''.join([('[label = "{}"],'.format(i)) for i in network_communities[number]])
-                return community_colours[number]
-            except: 
-                return ('White')
 
         return (
             dbc.Row([
@@ -283,7 +352,7 @@ def render_content_tabs(value):
                             'gravity': 1
                             }, # cose, ... 
                             style={'width': '100%', 'height': '600px'},
-                            elements=Nodes_cyto+Edges_cyto,
+                            elements=nodes+edges,
                             stylesheet=[{
                             'selector': 'node',
                             'style': {
@@ -294,65 +363,95 @@ def render_content_tabs(value):
                                 'background-color': 'black',
                                 'padding': '50%'
                             }},
-                            {'selector': get_selectors(0),
+                            {'selector': get_selectors_communities(0),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(0),
+                                'background-color': 'red',
                              }},
-                            {'selector': get_selectors(1),
+                            {'selector': get_selectors_communities(1),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(1),
+                                'background-color': 'blue',
                              }},
-                            {'selector': get_selectors(2),
+                            {'selector': get_selectors_communities(2),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(2),
+                                'background-color': 'orange',
                              }},
-                            {'selector': get_selectors(3),
+                            {'selector': get_selectors_communities(3),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(3),
+                                'background-color': 'green',
                              }},
-                            {'selector': get_selectors(4),
+                            {'selector': get_selectors_communities(4),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(4),
+                                'background-color': 'purple',
                              }},
-                            {'selector': get_selectors(5),
+                            {'selector': get_selectors_communities(5),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(5),
+                                'background-color': 'olive',
                              }},
-                            {'selector': get_selectors(6),
+                            {'selector': get_selectors_communities(6),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(6),
+                                'background-color': 'brown',
                              }},
-                            {'selector': get_selectors(7),
+                            {'selector': get_selectors_communities(7),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(7),
+                                'background-color': 'maroon',
                              }},
-                            {'selector': get_selectors(8),
+                            {'selector': get_selectors_communities(8),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(8),
+                                'background-color': 'lime',
                              }},
-                            {'selector': get_selectors(9),
+                            {'selector': get_selectors_communities(9),
                             'style': {
                                 'width': .8,
                                 'height': .8,
-                                'background-color': get_colour(9),
+                                'background-color': 'teal',
+                             }},
+                            {'selector': get_selectors_centrality(0),
+                            'style': {
+                                'width': .2,
+                                'height': .2,
+                                'background-opacity': .2,
+                             }},
+                            {'selector': get_selectors_centrality(1),
+                            'style': {
+                                'width': .4,
+                                'height': .4,
+                                'background-opacity': .4,
+                             }},
+                            {'selector': get_selectors_centrality(2),
+                            'style': {
+                                'width': .6,
+                                'height': .6,
+                                'background-opacity': .6,
+                             }},
+                            {'selector': get_selectors_centrality(3),
+                            'style': {
+                                'width': .8,
+                                'height': .8,
+                                'background-opacity': .8,
+                             }},
+                            {'selector': get_selectors_centrality(4),
+                            'style': {
+                                'width': 1,
+                                'height': 1,
+                                'background-opacity': 1,
                              }},
                             {'selector': 'edge',
                             'style': {
@@ -402,14 +501,29 @@ def render_content_tabs(value):
                                     dbc.CardBody(
                                             [
                                                 html.H6("Data on selected node:"),
-                                                html.Pre(id='cytoscape-tapNodeData-json', style=styles['pre'])
+                                                dash_table.DataTable(
+                                                    id='tapNodeData-json',
+                                                    columns=[{"name": 'Node ID', "id": 'node_ID'}, {"name": 'Title', "id": 'title'}, {"name": 'Language', "id": 'language'}, {"name": 'Centrality', "id": 'Centrality'} ], # {"name": 'RAAC', "id": 'C'}],
+                                                    data = data, 
+                                                    editable=True,
+                                                    row_deletable=False,
+                                                    style_table={'height': '75px', 'overflowY': 'auto'}
+                                                )
                                             ]
                                         ), 
                                 ),
                                 dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on community of selected node:")
+                                                html.H6("Data on nodes in selected community:"),
+                                                dash_table.DataTable(
+                                                    id='tapCommunityData-json',
+                                                        columns=[{"name": 'Node ID', "id": 'node_ID'}, {"name": 'Title', "id": 'title'}, {"name": 'Language', "id": 'language'} ], 
+                                                        data = data, 
+                                                        editable=True,
+                                                        row_deletable=False,
+                                                        style_table={'height': '300px', 'overflowY': 'auto'}
+                                                )
                                             ]
                                         ), 
                                 ),
@@ -429,10 +543,34 @@ def render_content_tabs(value):
         ])
     )
 
-@app.callback(Output('cytoscape-tapNodeData-json', 'children'),
-              Input('cytoscape-graph', 'tapNodeData'))
-def displayTapNodeData(data):
-    return json.dumps(data, indent=2)
+@app.callback(Output('tapNodeData-json', 'data'),
+            Input('tabs-list', 'value'), 
+            Input('cytoscape-graph', 'tapNodeData')) #               # Input('tabs-list', 'value')
+def displayTapNodeData(value, tapNodeData):
+    s = str(value)
+    lang = s.split('(', 1)[1].split(')')[0]
+    node_title = tapNodeData['id']
+    wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+    stats_nodes = wiki_page.getStatsNodes(threshold=4)
+    
+    df_dict = [v for (k,v) in network_data.items() if v['title'] == node_title if v['language'] == lang]
+    df_dict[0]['Centrality'] = stats_nodes[node_title]['Centrality']
+
+    return df_dict
+
+@app.callback(Output('tapCommunityData-json', 'data'),
+              Input('tabs-list', 'value'), 
+              Input('cytoscape-graph', 'tapNodeData')) 
+def displaytapCommunityData(value, tapNodeData):
+    s = str(value)
+    lang = s.split('(', 1)[1].split(')')[0]
+    node_title = tapNodeData['id']
+    wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+    communities = wiki_page.getCommunities()
+    selected_community = list([i for i in communities if node_title in i][0])
+
+    df_dict = [v for (k,v) in network_data.items() if v['title'] in selected_community if v['language'] == lang]
+    return df_dict
 
 if __name__ == '__main__':
     app.run_server(debug=True)
