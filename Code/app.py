@@ -8,6 +8,7 @@ import json
 from networkx.algorithms.traversal.depth_first_search import dfs_labeled_edges
 import pandas as pd
 import numpy as np
+# from sklearn import preprocessing
 
 # packages for creation classes and network analysis 
 import networkx as nx
@@ -40,7 +41,6 @@ import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import plotly.express as px
-
 
 # setup layout and paths
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
@@ -191,34 +191,6 @@ class WikiNetwork(WikiNode):
             data[item] = {'Centrality': degree_centrality_nodes[item], 'Eccentricity': eccentricity_nodes[item]} 
 
         return(data)
-    
-    def getStatsCommunities(self, node):
-        # TODO: return an numpy array with stats per node: 
-        # - triangles
-        # - degree_centrality 
-        # - ... 
-        # if nodes == None: 
-          #  node = self.node_links
-
-        print('WIP')
-    
-    def getStatsNetwork(self): 
-        return(
-            pd.DataFrame(
-                {
-                    "A": self.node_ID,
-                    "B": pd.Timestamp("20200102"),
-                    "C": pd.Series(1, index=list(range(4)), dtype="float32"),
-                    "D": np.array([3] * 4, dtype="int32"),
-                    "E": pd.Categorical(["test", "train", "test", "train"]),
-                    "F": self.node_title,
-                }
-                )
-            )   
-        # TODO: return a dictionary with stats on network: 
-        # - triangles
-        # - degree_centrality 
-        # - ...
 
 all_networks = getDownloadedNetworks()
 
@@ -303,12 +275,6 @@ def set_network_options(selected_network):
 def render_tabs(value):
     return [dcc.Tab(label = i, value = i) for i in value] 
 
-# NB! 
-@app.callback(Output('memory-selected-networks', 'data'),
-              Input('tabs-list', 'value'))     
-def create_wiki_network(value):         
-    return WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-
 @app.callback(Output('tabs-content', 'children'),
             [Input('memory-selected-networks', 'data'),
             Input('tabs-list', 'value')])  #, 
@@ -316,21 +282,13 @@ def create_wiki_network(value):
 def render_content_tabs(data, value):
         
         wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+        list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
 
-        nodes = wiki_page.getNodes(type='cytoscape', threshold=4)
-        edges = wiki_page.getEdges(type='cytoscape', threshold=4)
+        nodes = wiki_page.getNodes(type='cytoscape', threshold=0)
+        edges = wiki_page.getEdges(type='cytoscape', threshold=0)
         communities = wiki_page.getCommunities()
 
-        stats_nodes = wiki_page.getStatsNodes(threshold=4)
-        network_stats_df = wiki_page.getStatsNetwork()
-
-        def get_selectors_centrality(number):
-            tuple_node_centrality = {(k,v['Centrality']) for k, v in stats_nodes.items() } 
-            tuple_node_centrality = sorted(tuple_node_centrality, key= lambda node: node[1])
-            tuple_node_centrality_split = np.array_split(tuple_node_centrality, 5)
-
-            list_selectors = ''.join([('[label = "{}"],'.format(i[0])) for i in tuple_node_centrality_split[number]])
-            return(list_selectors.rstrip(list_selectors[-1]))
+        stats_nodes = wiki_page.getStatsNodes(threshold=0)
 
         def get_selectors_communities(number):
             try: 
@@ -338,6 +296,30 @@ def render_content_tabs(data, value):
                 return (list_selectors.rstrip(list_selectors[-1]))
             except: 
                 return ('[label = " "]') 
+
+        # NB! THIS IS SOLUTION TO ALL MY GRAPH STYLING ISSUES :D !!!  
+        number_of_communities = [*range(0, 9, 1)]
+        list_selectors_communities = [get_selectors_communities(n) for n in number_of_communities]
+        list_colours_communities = [{'background-color': list_colours[n]} for n in number_of_communities]
+
+        d = {'selector': ['node'] + list_selectors_communities, 
+             'style':    [{ 'width': .8, 'height': .8, 'background-color': 'red'}] + list_colours_communities}
+        my_stylesheet = pd.DataFrame(data=d)
+        
+        # temp = preprocessing.normalize([np.array([i['Centrality'] for i in stats_nodes.values()])])[0]
+        d2 = {'selector': [ ],
+            'style':   [ ] } 
+
+        # item_no = 0
+        for item in stats_nodes: 
+            # stats_nodes[item]['normalized=centrality'] = temp[item_no]
+            d2['selector'].append(item)
+            d2['style'].append({ #'background-opacity': stats_nodes[item]['normalized=centrality'], 
+                                'width': (stats_nodes[item]['Centrality'] * 3), 
+                                'height': (stats_nodes[item]['Centrality'] * 3)
+                            })
+            # item_no = item_no + 1
+        my_stylesheet2 = pd.DataFrame(data=d)
 
         return (
             dbc.Row([
@@ -350,149 +332,22 @@ def render_content_tabs(data, value):
                             'animate': True,
                             'randomize': True, 
                             'gravity': 1
-                            }, # cose, ... 
-                            style={'width': '100%', 'height': '600px'},
+                            }, 
+                            style={'width': '100%', 'height': '800px'},
                             elements=nodes+edges,
-                            stylesheet=[{
-                            'selector': 'node',
-                            'style': {
-                                'content': '',
-                                'shape': 'ellipse',
-                                'width': .5,    
-                                'height': .5,
-                                'background-color': 'black',
-                                'padding': '50%'
-                            }},
-                            {'selector': get_selectors_communities(0),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'red',
-                             }},
-                            {'selector': get_selectors_communities(1),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'blue',
-                             }},
-                            {'selector': get_selectors_communities(2),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'orange',
-                             }},
-                            {'selector': get_selectors_communities(3),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'green',
-                             }},
-                            {'selector': get_selectors_communities(4),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'purple',
-                             }},
-                            {'selector': get_selectors_communities(5),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'olive',
-                             }},
-                            {'selector': get_selectors_communities(6),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'brown',
-                             }},
-                            {'selector': get_selectors_communities(7),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'maroon',
-                             }},
-                            {'selector': get_selectors_communities(8),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'lime',
-                             }},
-                            {'selector': get_selectors_communities(9),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-color': 'teal',
-                             }},
-                            {'selector': get_selectors_centrality(0),
-                            'style': {
-                                'width': .2,
-                                'height': .2,
-                                'background-opacity': .2,
-                             }},
-                            {'selector': get_selectors_centrality(1),
-                            'style': {
-                                'width': .4,
-                                'height': .4,
-                                'background-opacity': .4,
-                             }},
-                            {'selector': get_selectors_centrality(2),
-                            'style': {
-                                'width': .6,
-                                'height': .6,
-                                'background-opacity': .6,
-                             }},
-                            {'selector': get_selectors_centrality(3),
-                            'style': {
-                                'width': .8,
-                                'height': .8,
-                                'background-opacity': .8,
-                             }},
-                            {'selector': get_selectors_centrality(4),
-                            'style': {
-                                'width': 1,
-                                'height': 1,
-                                'background-opacity': 1,
-                             }},
+                            stylesheet=
+                            my_stylesheet.to_dict('records') + 
+                            # my_stylesheet2.to_dict('records') + 
+                            [
                             {'selector': 'edge',
                             'style': {
                                 'curve-style': 'haystack', # bezier
                                 'width': .03
-                                #'height': .1
                             }}
-                        ]),
-                            html.Div(
-                                [
-                                    dbc.Row(
-                                    [
-                                        dbc.Col(
-                                            [
-                                                dcc.RangeSlider(
-                                                    min=0,
-                                                    max=100,
-                                                    step=5,
-                                                    marks={
-                                                        0: '0%',
-                                                        25: '25%',
-                                                        50: '50%',
-                                                        75: '75%',
-                                                        100: '100%'
-                                                    },
-                                                    value=[20, 100],
-                                                ),
-                                            ], width = 9, 
-                                        ),
-                                        dbc.Col(
-                                            [
-                                                dbc.Button("Update", outline=True, color="primary", className="mr-1"), 
-                                            ], width = 3, 
-                                        )
-                                    ]
-                                )
-                                ], style={"width": "100%"}
-, 
+                        ] 
                             )
                         ]
-                    ), style={"width": "40%"},
+                    ), style={"width": "60%"},
                 ),
                 dbc.Card(
                     dbc.CardBody(
@@ -503,7 +358,7 @@ def render_content_tabs(data, value):
                                                 html.H6("Data on selected node:"),
                                                 dash_table.DataTable(
                                                     id='tapNodeData-json',
-                                                    columns=[{"name": 'Node ID', "id": 'node_ID'}, {"name": 'Title', "id": 'title'}, {"name": 'Language', "id": 'language'}, {"name": 'Centrality', "id": 'Centrality'} ], # {"name": 'RAAC', "id": 'C'}],
+                                                    columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'Centrality'} ], # {"name": 'RAAC', "id": 'C'}],
                                                     data = data, 
                                                     editable=True,
                                                     row_deletable=False,
@@ -518,7 +373,7 @@ def render_content_tabs(data, value):
                                                 html.H6("Data on nodes in selected community:"),
                                                 dash_table.DataTable(
                                                     id='tapCommunityData-json',
-                                                        columns=[{"name": 'Node ID', "id": 'node_ID'}, {"name": 'Title', "id": 'title'}, {"name": 'Language', "id": 'language'} ], 
+                                                        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'Centrality'} ], 
                                                         data = data, 
                                                         editable=True,
                                                         row_deletable=False,
@@ -531,21 +386,28 @@ def render_content_tabs(data, value):
                                     dbc.CardBody(
                                             [
                                                 html.H6("Data on network:"),
-                                                dbc.Table.from_dataframe(network_stats_df, striped=True, bordered=True, hover=True), 
+                                                dash_table.DataTable(
+                                                    id='tapNetworkData-json',
+                                                        columns=[{"name": 'Network', "id": 'network'}, {"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Center', "id": 'center'}, {"name": 'Clustering', "id": 'clustering'} ], 
+                                                        data = data, 
+                                                        editable=True,
+                                                        row_deletable=False,
+                                                        style_table={'height': '300px', 'overflowY': 'auto'}
+                                                )
                                             ]
                                         ), 
                                 )
                                 ]
                             ),
                             ]
-                    ), style={"width": "60%"},
+                    ), style={"width": "40%"},
                     )
         ])
     )
 
 @app.callback(Output('tapNodeData-json', 'data'),
             Input('tabs-list', 'value'), 
-            Input('cytoscape-graph', 'tapNodeData')) #               # Input('tabs-list', 'value')
+            Input('cytoscape-graph', 'tapNodeData')) 
 def displayTapNodeData(value, tapNodeData):
     s = str(value)
     lang = s.split('(', 1)[1].split(')')[0]
@@ -568,33 +430,32 @@ def displaytapCommunityData(value, tapNodeData):
     wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
     communities = wiki_page.getCommunities()
     selected_community = list([i for i in communities if node_title in i][0])
+    stats_nodes = wiki_page.getStatsNodes(threshold=4)
+    selected_stats_nodes = list([i for i in communities if node_title in i][0])
 
     df_dict = [v for (k,v) in network_data.items() if v['title'] in selected_community if v['language'] == lang]
+    for item in df_dict: 
+        try: 
+            item.update( {'Centrality': stats_nodes[item['title']]['Centrality'] })
+        except: 
+            pass
+
+    return df_dict
+
+@app.callback(Output('tapNetworkData-json', 'data'),
+              Input('tabs-list', 'value')) 
+def displaytapNetworkData(value):
+    wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
+    df_dict = [
+        {'network': value},
+        {'nodes': len(wiki_page.getNodes(0))}, 
+        {'edges': len(wiki_page.getEdges(0))}, 
+        {'communities': len(wiki_page.getCommunities())}, 
+        {'center': 'TODO'}, 
+        {'average_clustering': 'TODO'}, 
+        {'dominating set': 'TODO'}
+    ]
     return df_dict
 
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-
-
-"""    html.Div(
-        [
-        dcc.Dropdown(
-        id='selected-network',
-        options=
-            [{'label': k, 'value': k} for k in all_networks.keys()]
-        ),
-    ], style={'width': '25%', 'float': 'left', 'padding': 10, 'display': 'inline-block'}), 
-    html.Div([
-        dcc.Dropdown(
-        id='language-options',
-            multi=True
-        ),
-    ], style={'width': '60%', 'float': 'middle', 'padding': 10, 'display': 'inline-block'}),
-"""
-    #html.Div([
-        #html.Button(
-        #children='Submit',
-        #id='submit-val', 
-        #n_clicks = 0)
-    #], style={'width': '10%', 'float': 'right', 'padding': 10, 'display': 'inline-block'}), 
