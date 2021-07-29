@@ -8,7 +8,7 @@ import json
 from networkx.algorithms.traversal.depth_first_search import dfs_labeled_edges
 import pandas as pd
 import numpy as np
-# from sklearn import preprocessing
+from sklearn import preprocessing
 
 # packages for creation classes and network analysis 
 import networkx as nx
@@ -73,6 +73,9 @@ def getDownloadedNetworks():
     for network in downloaded_networks: 
         items[network['title'] + ' (' + network['language'] + ')'] = {'lang':  network['language'], '*': network['title']}    
     return(items)
+
+def normalizing(val, max, min):
+    return (val - min) / (max - min); 
 
 def degree_centrality(G):
 # function copy-pasted from: https://networkx.org/documentation/stable/_modules/networkx/algorithms/centrality/degree_alg.html#degree_centrality
@@ -181,6 +184,7 @@ class WikiNetwork(WikiNode):
         return greedy_modularity_communities(G)
 
     def getStatsNodes(self, threshold = 0):
+        # I think this will work much better with pandas... For next sprint. (see: https://stackoverflow.com/questions/46711557/calculating-min-and-max-over-a-list-of-dictionaries-for-normalizing-dictionary-v)
         G = nx.Graph()
         G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
 
@@ -281,47 +285,34 @@ def render_tabs(value):
             Input('tabs-list', 'value')])  #, 
             # [State('tabs-content', 'children')])
 def render_content_tabs(data, value):
-        
+
         wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
         graph_node_threshold = 0 
+        list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
 
         nodes = wiki_page.getNodes(type='cytoscape', threshold=graph_node_threshold)
         edges = wiki_page.getEdges(type='cytoscape', threshold=graph_node_threshold)
         stats_nodes = wiki_page.getStatsNodes(threshold=graph_node_threshold)
         communities = wiki_page.getCommunities(threshold=graph_node_threshold)
 
-        list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
+        centrality_max = max([v['Centrality'] for v in stats_nodes.values()])
+        centrality_min = min([v['Centrality'] for v in stats_nodes.values()])
+        for node in stats_nodes.keys():
+            stats_nodes[node]['centrality_normed'] = normalizing(val= stats_nodes[node]['Centrality'], max= centrality_max, min = centrality_min)
 
-        def get_selectors_communities(number):
-            try: 
-                list_selectors = ''.join([('[label = "{}"],'.format(i)) for i in communities[number]])
-                return (list_selectors.rstrip(list_selectors[-1]))
-            except: 
-                return ('[label = " "]') 
-
-        # NB! THIS IS SOLUTION TO ALL MY GRAPH STYLING ISSUES :D !!!  
-        number_of_communities = [*range(0, 9, 1)]
-        list_selectors_communities = [get_selectors_communities(n) for n in number_of_communities]
-        list_colours_communities = [{'background-color': list_colours[n]} for n in number_of_communities]
-
-        d = {'selector': ['node'] + list_selectors_communities, 
-             'style':    [{ 'width': .8, 'height': .8, 'background-color': 'red'}] + list_colours_communities}
-        my_stylesheet = pd.DataFrame(data=d)
-        
-        # temp = preprocessing.normalize([np.array([i['Centrality'] for i in stats_nodes.values()])])[0]
-        d2 = {'selector': [ ],
-            'style':   [ ] } 
-
-        # item_no = 0
-        for item in stats_nodes: 
-            # stats_nodes[item]['normalized=centrality'] = temp[item_no]
-            d2['selector'].append(item)
-            d2['style'].append({ #'background-opacity': stats_nodes[item]['normalized=centrality'], 
-                                'width': (stats_nodes[item]['Centrality'] * 3), 
-                                'height': (stats_nodes[item]['Centrality'] * 3)
-                            })
-            # item_no = item_no + 1
-        my_stylesheet2 = pd.DataFrame(data=d)
+        list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.keys()]
+        list_styles = []
+        for node in stats_nodes.keys(): 
+            selected_community = [node in i for i in communities].index(True)
+            list_styles.append({'background-color': list_colours[selected_community], 
+                                'background-opacity': stats_nodes[node]['centrality_normed'] + .2, 
+                                'shape': 'ellipse',
+                                'width': (stats_nodes[node]['centrality_normed'] * 5) + 1, 
+                                'height': (stats_nodes[node]['centrality_normed'] * 5) + 1,
+                                }) 
+        d = {'selector': list_selectors,
+            'style':   list_styles } 
+        graph_stylesheet = pd.DataFrame(d)
 
         return (
             dbc.Row([
@@ -335,18 +326,22 @@ def render_content_tabs(data, value):
                                 'randomize': True, 
                                 'gravity': 1
                             }, 
-                            style={'width': '100%', 'height': '600px'},
+                            style={'width': '100%', 'height': '650px'},
                             elements=nodes+edges,
-                            stylesheet=
-                                my_stylesheet.to_dict('records') + 
-                                # my_stylesheet2.to_dict('records') + 
-                            [
-                            {'selector': 'edge',
-                                'style': {
-                                    'curve-style': 'haystack', # bezier
-                                    'width': .03
-                            }}
-                        ] 
+                            stylesheet= 
+                                [
+                                    {'selector': 'edge',
+                                        'style': {
+                                            'curve-style': 'haystack', # bezier
+                                            'width': .03
+                                    }}, 
+                                    {'selector': 'node',
+                                        'style': {
+                                            'width': .01, 
+                                            'height': .01
+                                    }}, 
+                                ] + 
+                                graph_stylesheet.to_dict('records')  
                             )
                         ]
                     ), style={"width": "50%"},
@@ -430,7 +425,7 @@ def displayTapNodeData(value, tapNodeData):
     lang = s.split('(', 1)[1].split(')')[0]
     node_title = tapNodeData['id']
     wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-    stats_nodes = wiki_page.getStatsNodes(threshold=4)
+    stats_nodes = wiki_page.getStatsNodes(threshold=0)
     
     df_dict = [v for (k,v) in network_data.items() if v['title'] == node_title if v['language'] == lang]
     df_dict[0]['Centrality'] = stats_nodes[node_title]['Centrality']
@@ -447,7 +442,7 @@ def displaytapCommunityData(value, tapNodeData):
     wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
     communities = wiki_page.getCommunities()
     selected_community = list([i for i in communities if node_title in i][0])
-    stats_nodes = wiki_page.getStatsNodes(threshold=4)
+    stats_nodes = wiki_page.getStatsNodes(threshold=0)
     selected_stats_nodes = list([i for i in communities if node_title in i][0])
 
     df_dict = [v for (k,v) in network_data.items() if v['title'] in selected_community if v['language'] == lang]
@@ -457,9 +452,7 @@ def displaytapCommunityData(value, tapNodeData):
         except: 
             pass
 
-    return df_dict
-
-
+    return sorted(df_dict, key=lambda k: k['Centrality'], reverse=True)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
