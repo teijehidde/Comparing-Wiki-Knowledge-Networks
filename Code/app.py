@@ -312,7 +312,7 @@ def render_content_tabs(data, value):
                                 }) 
         d = {'selector': list_selectors,
             'style':   list_styles } 
-        graph_stylesheet = pd.DataFrame(d)
+        pd_stylesheet = pd.DataFrame(d)
 
         return (
             dbc.Row([
@@ -341,10 +341,10 @@ def render_content_tabs(data, value):
                                             'height': .01
                                     }}, 
                                 ] + 
-                                graph_stylesheet.to_dict('records')  
+                                pd_stylesheet.to_dict('records')  
                             )
                         ]
-                    ), style={"width": "50%"},
+                    ), style={"width": "45%"},
                 ),
                 dbc.Card(
                     dbc.CardBody(
@@ -354,7 +354,7 @@ def render_content_tabs(data, value):
                                             [
                                                 html.H6("Data on network:"),
                                                 dash_table.DataTable(
-                                                    id='tapNetworkData-json',
+                                                    id='NetworkData-json',
                                                         columns=[{"name": 'Network', "id": 'network'}, {"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Center', "id": 'center'}, {"name": 'Clustering', "id": 'clustering'} ], 
                                                         data = data, 
                                                         editable=True,
@@ -397,12 +397,12 @@ def render_content_tabs(data, value):
                                 ]
                             ),
                             ]
-                    ), style={"width": "50%"},
+                    ), style={"width": "55%"},
                     )
         ])
     )
 
-@app.callback(Output('tapNetworkData-json', 'data'),
+@app.callback(Output('NetworkData-json', 'data'),
               Input('tabs-list', 'value')) 
 def displaytapNetworkData(value):
     wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
