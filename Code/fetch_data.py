@@ -1,20 +1,14 @@
 # Setup packages and file paths 
 import os
-from itertools import chain
-from collections import Counter
-import collections 
 import requests
-import json
+import time 
 import pandas as pd
-import numpy as np 
-import zipfile
-from io import BytesIO
 
 additional_download_languages = {'Arabic': 'ar', 'Chinese': 'zh', 'French': 'fr',  'Russian': 'ru', 'Spanish': 'es'}
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
 data_file = "data_new2.json"
 
-# Check if json file "DATA_FILE" is present in folder. 
+# Check if json file "DATA_FILE" is present in folder. -- This should (give option to) create a new file if none exists! 
 def WikiNetworkDataMAIN():
     os.system('clear')
 
@@ -127,7 +121,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
 # Function B: Downloading multiple languages and saving them to json/panda file. 
 def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = ["ar", "de", "fr", "nl"]): # or: 'available_langs'
     network_data_df = downloadWikiNetwork(node_title=node_title, lang=original_lang)
-    available_langs = network_data_df.loc[network_data_df['title'] == node_title].loc[network_data_df['lang'] == original_lang]['langlinks'].values.tolist()[0]
+    available_langs = network_data_df.loc[network_data_df['langlinks'].notnull()]['langlinks'].values.tolist()[0]
 
     if additional_langs == []:
         print('The wikipedia page is available in the following languages:')         
@@ -180,7 +174,13 @@ def overviewNetworks():
     available_wiki_networks = network_data_df.loc[network_data_df['langlinks'].notnull()]
     available_wiki_networks['number_of_links'] = available_wiki_networks['links'].apply(lambda x: len(x)) # here it throws an error. FIX. 
 
-    print(available_wiki_networks[['title', 'lang', 'pageid', 'number_of_links']])
+    print(available_wiki_networks[['title', 'lang', 'pageid', 'number_of_links']] ) 
+
+    print("   ")
+    choice_str = str(input("Press return to exit to main menu."))
+    if choice_str.lower() != None: 
+        os.system('clear')
+        SelectMenu()
 
 # Function 2: request name of network + languages and download networks in these languages .  
 def downloadNetworks():
@@ -202,12 +202,14 @@ def downloadNetworks():
         pass
 
     else: 
-        # try: 
-        downloadMultiLangWikiNetwork(node_title=choice_str, additional_langs=list(additional_download_languages.values()))
-        #except: 
-        #    print('Somethign went wrong. Try Again.')
+        try: 
+            downloadMultiLangWikiNetwork(node_title=choice_str, additional_langs=list(additional_download_languages.values()))
+            print("Returning to main menu.")
+            time.sleep(3)  
+        except: 
+            print('Something went wrong. Try Again.') # this is just trerrible. Make more specific / useful later on. 
 
-# NB: RUNTIME -- this should be written differently.
+# NB: RUNTIME 
 if __name__ == '__main__':
     WikiNetworkDataMAIN()
 

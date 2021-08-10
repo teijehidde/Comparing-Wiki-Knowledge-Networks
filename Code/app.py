@@ -44,7 +44,7 @@ import plotly.express as px
 
 # setup layout and paths
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
-data_file = "DATA.json" 
+data_file = "data_new2.json" 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
@@ -54,30 +54,19 @@ styles = {
     }
 }
 
-global network_data # TEMP - NOT SAFE!! ## 
-
-with open(path + data_file) as json_file:
-    network_data = json.load(json_file)
-
 # Setting functions
 # function: provide titles of networks that are saved in the JSON file. Also provides the language they were saved in. 
 def getDownloadedNetworks():
 
-    # create set of ego network names.  
-    downloaded_networks = [(v['ego']) for (k,v) in network_data.items()]
-    downloaded_networks = set(list(chain(*downloaded_networks)))
-    downloaded_networks = [v for v in network_data.values() if v['title'] in downloaded_networks]
+    network_data_df = pd.read_json((path + data_file), orient='split')
+    available_wiki_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 
-    # print names of ego networks and language that they have been downloaded in. 
-    items = {}  
-    for network in downloaded_networks: 
-        items[network['title'] + ' (' + network['language'] + ')'] = {'lang':  network['language'], '*': network['title']}    
-    return(items)
+    return(available_wiki_networks)
 
 def normalizing(val, max, min):
     return (val - min) / (max - min); 
 
-def degree_centrality(G):
+def degreeCentrality(G):
 # function copy-pasted from: https://networkx.org/documentation/stable/_modules/networkx/algorithms/centrality/degree_alg.html#degree_centrality
     
     if len(G) <= 1:
@@ -120,26 +109,23 @@ def eccentricity(G, v=None, sp=None):
     else:
         return e
 
-# Initiate class Node. 
 class WikiNode:
-    def __init__(self, node_title, lang):
+    def __init__(self, node_title, lang, network_data):
 
-        # Select node in JSON file (by title and language). 
-        node_data = [v for (k,v) in network_data.items() if v['title'] == node_title if v['language'] == lang][0]
+        node_data = network_data.loc[network_data['title'] == node_title].loc[network_data['lang'] == lang]
         
-        # Extract data and place in instance of Wikinode class. 
-        self.node_title = node_data['title']
-        self.node_ID = node_data['node_ID']
-        self.node_links = node_data['links']
-        self.node_lang = node_data['language']
+        self.node_title = node_data[['title']].iloc[0,0] # iloc[0,0] needed because there can be two instance of same wikipage in the dataframe: one as centralnode (with langlinks) and one as a normal node of other network (without langlinks).  
+        self.node_ID = node_data[['uniqueid']].iloc[0,0]
+        self.node_links = node_data[['links']].iloc[0,0]
+        self.node_lang = node_data[['lang']].iloc[0,0]
 
-# Initiate class WikiNetwork
 class WikiNetwork(WikiNode):
    
     def __init__(self,node_title, lang):
         
-        # initiate the central node of the network as class WikiNode, add additional attributes for class WikiNetwork 
-        WikiNode.__init__(self, node_title, lang)
+        saved_network_data = pd.read_json((path + data_file), orient='split')
+        
+        WikiNode.__init__(self, node_title, lang, network_data = saved_network_data)
         self.network_nodes = {}
         self.network_links = []
         self.network_edges = [] 
@@ -148,7 +134,7 @@ class WikiNetwork(WikiNode):
         # Go through node_links of the central node (node_title) to build network.
         try: 
             for link in self.node_links + [self.node_title]:
-                Node2 = WikiNode(link, lang)
+                Node2 = WikiNode(link, lang, network_data = saved_network_data) # NB: the links are not always in the same language as the network. It throws an error as result. - for now it just skips. 
                 purged_links = [x for x in Node2.node_links if x in self.node_links]
                 purged_edges = []
                 for purged_link in purged_links:
@@ -158,7 +144,6 @@ class WikiNetwork(WikiNode):
                 self.network_edges = self.network_edges + purged_edges
         except: 
             pass
-        
         self.links_count = Counter(self.network_links)
 
     def getNodes(self, type="cytoscape", threshold=0):
@@ -189,7 +174,7 @@ class WikiNetwork(WikiNode):
         G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
 
         data = {}
-        degree_centrality_nodes = degree_centrality(G)
+        degree_centrality_nodes = degreeCentrality(G)
         eccentricity_nodes = eccentricity(G) 
 
         for item in G.nodes: 
@@ -206,7 +191,7 @@ navbar = html.Div(
                 [
                     dbc.Col(html.Div([dcc.Dropdown(
                         id='selected-network',
-                        options= [{'label': k, 'value': k} for k in all_networks.keys()]
+                        options= [{'label': k, 'value': k} for k in all_networks]
                         ),
                         ]), width = 3
                     ),
@@ -271,8 +256,18 @@ app.layout = html.Div([
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
 def set_network_options(selected_network):
-    wiki_page_options = [v['AvailableLanguages'] for v in network_data.values() if v['title'] == all_networks[selected_network]['*'] if v['language'] == all_networks[selected_network]['lang']]
-    language_options = [selected_network] + [k for k,v in all_networks.items() if {'lang': v['lang'], '*': v['*']} in wiki_page_options[0]]
+    network_data_df = pd.read_json((path + data_file), orient='split')
+    
+    all_networks_keys = network_data_df.loc[network_data_df['langlinks'].notnull()]['title'].values.tolist()
+    all_networks_values = network_data_df.loc[network_data_df['langlinks'].notnull()]['lang'].values.tolist()
+    all_networks = dict(zip(all_networks_keys, all_networks_values))
+
+    node_title_langlinks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['title'] == selected_network].loc[network_data_df['lang'] == 'en']['langlinks'].values.tolist()[0]
+    node_title_langlinks = [i['*'] for i in node_title_langlinks]
+
+    language_options = [{k,v} for k,v in all_networks.items() if k in node_title_langlinks]
+    language_options = ["{} ({})".format(v,k) for k,v in language_options] 
+
     return [{'label': i, 'value': i} for i in language_options] 
 
 @app.callback(Output('tabs-list', 'children'),
