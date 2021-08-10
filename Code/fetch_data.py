@@ -10,6 +10,7 @@ import numpy as np
 import zipfile
 from io import BytesIO
 
+additional_download_languages = {'Arabic': 'ar', 'Chinese': 'zh', 'French': 'fr',  'Russian': 'ru', 'Spanish': 'es'}
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
 data_file = "data_new2.json"
 
@@ -155,13 +156,20 @@ def SelectMenu():
     print("   ")
     print("1 = Overview available networks in " + data_file + ".") # should output panda datframe: index = topics; columns = languages available; cells = number of nodes. 
     print("2 = Download and save new network.")
+    print("9 = Quit app.")
 
-    choice_int = int(input("Please type a number between 1 and 2 to select one of the above options:" ))
-    
-    if choice_int == 1: overviewNetworks()
-    if choice_int == 2: downloadNetworks()
-    else: 
-        # os.system('clear')
+    try:
+        choice_int = int(input("Please select one of the above options:" ))
+        if choice_int == 1: overviewNetworks()
+        if choice_int == 2: downloadNetworks()
+        if choice_int == 9: pass
+        else:
+            os.system('clear')
+            print("Please type a valid number.")
+            print("   ")
+            SelectMenu()
+    except:  
+        os.system('clear')
         print("Please type a number.")
         print("   ")
         SelectMenu()
@@ -176,7 +184,28 @@ def overviewNetworks():
 
 # Function 2: request name of network + languages and download networks in these languages .  
 def downloadNetworks():
-    print('to be implemnted')
+
+    list_langs = list(additional_download_languages.keys())
+    list_langs = ' '.join(list_langs)
+    
+    print("   ")
+    print("---")
+    print("   ")
+    print("Please provide the title of an English Wikipedia page from which links will be downloaded.") 
+    print("The title will also be downloaded in the following languages (when available): " + list_langs + '.')
+    print("Downloading will take a while due to bandwidth throtteling of the wikimedia API. It is recommended to start with a small wikipedia page.")
+    print("The app prints a brief sentences for each call that it makes to the wikimedia API.")
+    print("   ")
+    choice_str = str(input("Please type the title of a Wikipedia page. Type q to quit."))
+
+    if choice_str.lower() == 'q': 
+        pass
+
+    else: 
+        # try: 
+        downloadMultiLangWikiNetwork(node_title=choice_str, additional_langs=list(additional_download_languages.values()))
+        #except: 
+        #    print('Somethign went wrong. Try Again.')
 
 # NB: RUNTIME -- this should be written differently.
 if __name__ == '__main__':
