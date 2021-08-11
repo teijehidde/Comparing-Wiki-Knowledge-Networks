@@ -97,7 +97,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
 
     # 4: Using all_nodes to go through list of raw data from API. 
     for node in all_nodes:
-                
+        network_data_df.at[node,'links'] = []
         for item in wiki_data:
             if node in item['query']['pages'].keys(): # possibility:  df_new_wiki_data.update(item) #, errors = 'raise') 
                 network_data_df.at[node, 'title'] = item['query']['pages'][node]['title']
@@ -107,10 +107,8 @@ def downloadWikiNetwork(node_title, lang = "en"):
                 network_data_df.at[node,'lastrevid'] = item['query']['pages'][node]['lastrevid']
 
                 if 'links' in item['query']['pages'][node].keys():
-                    links_temp = []
                     for link in item['query']['pages'][node]['links']:
-                        links_temp.append(link['title'])
-                    network_data_df.at[node,'links'] = links_temp
+                        network_data_df.at[node,'links'].append(link['title'])
 
                 if 'langlinks' in item['query']['pages'][node].keys():
                     network_data_df.at[node,'langlinks'] = item['query']['pages'][node]['langlinks']
@@ -135,9 +133,10 @@ def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_la
                 
     network_data_saved = pd.read_json((path + data_file), orient='split')
     network_data_df = pd.concat([network_data_df, network_data_saved], ignore_index=True, sort=False)
-    network_data_df = network_data_df.loc[network_data_df.astype(str).drop_duplicates(keep = 'last').index].reset_index(drop=True)
+    network_data_df = network_data_df.loc[network_data_df.astype(str).drop_duplicates(subset=['title', 'lang', 'pageid'], keep = 'first').index].reset_index(drop=True)
     network_data_df.to_json((path + data_file), orient='split')
-    print("Download of network and additional languages finished.") 
+    print("Download of network and additional languages finished. Returning to main menu...") 
+    time.sleep(5) 
 
 
 # Function 0: Select function to be run on json file.  

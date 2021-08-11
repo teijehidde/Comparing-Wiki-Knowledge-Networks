@@ -60,7 +60,7 @@ def getDownloadedNetworks():
 
     network_data_df = pd.read_json((path + data_file), orient='split')
     available_wiki_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
-
+    
     return(available_wiki_networks)
 
 def normalizing(val, max, min):
@@ -109,6 +109,10 @@ def eccentricity(G, v=None, sp=None):
     else:
         return e
 
+
+all_networks = getDownloadedNetworks()
+network_data_df = pd.read_json((path + data_file), orient='split')
+
 class WikiNode:
     def __init__(self, node_title, lang, network_data):
 
@@ -121,20 +125,19 @@ class WikiNode:
 
 class WikiNetwork(WikiNode):
    
-    def __init__(self,node_title, lang):
+    def __init__(self,node_title, lang, threshold = 0):
         
-        saved_network_data = pd.read_json((path + data_file), orient='split')
-        
-        WikiNode.__init__(self, node_title, lang, network_data = saved_network_data)
+        WikiNode.__init__(self, node_title, lang, network_data = network_data_df)
+        self.threshold = threshold
         self.network_nodes = {}
-        self.network_links = []
+        self.network_links = [node_title]
         self.network_edges = [] 
         self.network_status = []
         
         # Go through node_links of the central node (node_title) to build network.
-        try: 
-            for link in self.node_links + [self.node_title]:
-                Node2 = WikiNode(link, lang, network_data = saved_network_data) # NB: the links are not always in the same language as the network. It throws an error as result. - for now it just skips. 
+        for link in self.node_links + [self.node_title]:
+            try: 
+                Node2 = WikiNode(link, lang, network_data = network_data_df) # NB: the links are not always in the same language as the network. It throws an error as result. - for now it just skips. 
                 purged_links = [x for x in Node2.node_links if x in self.node_links]
                 purged_edges = []
                 for purged_link in purged_links:
@@ -142,20 +145,20 @@ class WikiNetwork(WikiNode):
                 self.network_nodes[Node2.node_ID] = Node2
                 self.network_links = self.network_links + purged_links
                 self.network_edges = self.network_edges + purged_edges
-        except: 
-            pass
+            except: 
+                pass
         self.links_count = Counter(self.network_links)
 
-    def getNodes(self, type="cytoscape", threshold=0):
-        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= threshold]
+    def getNodes(self, type="cytoscape"):
+        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= self.threshold]
         
         if type == 'networkx':
             return [(i, {"name": i}) for i in selected_nodes]
         if type == 'cytoscape':
             return [{'data': {'id': i, "label": i}} for i in selected_nodes]
 
-    def getEdges(self,type="cytoscape", threshold=0):  
-        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= threshold]
+    def getEdges(self,type="cytoscape"):  
+        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= self.threshold]
         edges_network = [(a,b) for a,b in self.network_edges if a in selected_nodes and b in selected_nodes]
         
         if type == 'networkx':
@@ -163,26 +166,27 @@ class WikiNetwork(WikiNode):
         if type == 'cytoscape':
             return [{'data': {'source': a, "target": b}} for a,b in edges_network]
 
-    def getCommunities(self,threshold=0):  
+    def getCommunities(self):  
         G = nx.Graph()
-        G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
-        return greedy_modularity_communities(G)
+        G.add_edges_from(self.getEdges(type = 'networkx'))
+        communities = greedy_modularity_communities(G)
 
-    def getStatsNodes(self, threshold = 0):
-        # I think this will work much better with pandas... For next sprint. (see: https://stackoverflow.com/questions/46711557/calculating-min-and-max-over-a-list-of-dictionaries-for-normalizing-dictionary-v)
+        result = []
+        for number in range(len(communities)): 
+            result = result + [{i: number} for i in list(communities[number])] 
+
+        return result
+
+    def getStatsNodes(self):
+        
         G = nx.Graph()
-        G.add_edges_from(self.getEdges(type = 'networkx', threshold= threshold))
-
-        data = {}
+        G.add_edges_from(self.getEdges(type = 'networkx'))
+        communities = greedy_modularity_communities(G)
         degree_centrality_nodes = degreeCentrality(G)
-        eccentricity_nodes = eccentricity(G) 
+        eccentricity_nodes = eccentricity(G)
+        dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
 
-        for item in G.nodes: 
-            data[item] = {'Centrality': round(degree_centrality_nodes[item], 4), 'Eccentricity': eccentricity_nodes[item]} 
-
-        return(data)
-
-all_networks = getDownloadedNetworks()
+        return pd.DataFrame({'degree_centrality':pd.Series(degree_centrality_nodes), 'eccentricity':pd.Series(eccentricity_nodes), 'community':pd.Series(dict_communities)}) 
 
 navbar = html.Div(
     [
@@ -215,7 +219,7 @@ tabs = html.Div(
                         dbc.Card(
                             dbc.CardBody( 
                                 [
-                                html.Div(id='tabs-content'),
+                                html.Div(id='memory-tabs'),
                             ] )), 
                     ]
             )
@@ -246,7 +250,9 @@ overview = html.Div(
     )
 
 app.layout = html.Div([
-    dcc.Store(id='memory-selected-networks'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
+    dcc.Store(id='memory-network'),
+    dcc.Store(id='memory-tab'),
+    dcc.Store(id='memory-node-table'),  #storage_type='local'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
     navbar,
     tabs,
     overview
@@ -256,7 +262,6 @@ app.layout = html.Div([
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
 def set_network_options(selected_network):
-    network_data_df = pd.read_json((path + data_file), orient='split')
     
     all_networks_keys = network_data_df.loc[network_data_df['langlinks'].notnull()]['title'].values.tolist()
     all_networks_values = network_data_df.loc[network_data_df['langlinks'].notnull()]['lang'].values.tolist()
@@ -264,80 +269,113 @@ def set_network_options(selected_network):
 
     node_title_langlinks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['title'] == selected_network].loc[network_data_df['lang'] == 'en']['langlinks'].values.tolist()[0]
     node_title_langlinks = [i['*'] for i in node_title_langlinks]
+    language_options = [("{}: {}".format(v,k), v)  for k,v in all_networks.items() if k in node_title_langlinks]
 
-    language_options = [{k,v} for k,v in all_networks.items() if k in node_title_langlinks]
-    language_options = ["{} ({})".format(v,k) for k,v in language_options] 
-
-    return [{'label': i, 'value': i} for i in language_options] 
+    return [{'label': a, 'value': a} for a,b in language_options]
 
 @app.callback(Output('tabs-list', 'children'),
               Input('language-options', 'value'))
 def render_tabs(value):
     return [dcc.Tab(label = i, value = i) for i in value] 
 
-@app.callback(Output('tabs-content', 'children'),
-            [Input('memory-selected-networks', 'data'),
-            Input('tabs-list', 'value')])  #, 
-            # [State('tabs-content', 'children')])
-def render_content_tabs(data, value):
+@app.callback(Output('memory-network', 'data'),
+              Input('tabs-list', 'value'),
+              # State('memory-selected-networks', 'data')
+              ) 
+def createNetworkDataframe(value):
+    if value is None:
+        raise PreventUpdate
 
-        wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-        graph_node_threshold = 0 
-        list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
+    lang, node_title = str(value).split(': ', 1)
+    wiki_page = WikiNetwork(node_title=node_title, lang=lang)
+    stats_nodes = wiki_page.getStatsNodes()
+    nodes = wiki_page.getNodes(type='cytoscape')
+    edges = wiki_page.getEdges(type='cytoscape')
 
-        nodes = wiki_page.getNodes(type='cytoscape', threshold=graph_node_threshold)
-        edges = wiki_page.getEdges(type='cytoscape', threshold=graph_node_threshold)
-        stats_nodes = wiki_page.getStatsNodes(threshold=graph_node_threshold)
-        communities = wiki_page.getCommunities(threshold=graph_node_threshold)
+    pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()])
+    pd_nodes = pd_nodes.set_index('title', drop = False)
+    pd_nodes = pd.concat([pd_nodes, stats_nodes], axis = 1)
 
-        centrality_max = max([v['Centrality'] for v in stats_nodes.values()])
-        centrality_min = min([v['Centrality'] for v in stats_nodes.values()])
-        for node in stats_nodes.keys():
-            stats_nodes[node]['centrality_normed'] = normalizing(val= stats_nodes[node]['Centrality'], max= centrality_max, min = centrality_min)
+    return {'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
 
-        list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.keys()]
-        list_styles = []
-        for node in stats_nodes.keys(): 
-            selected_community = [node in i for i in communities].index(True)
-            list_styles.append({'background-color': list_colours[selected_community], 
-                                'background-opacity': stats_nodes[node]['centrality_normed'] + .2, 
+@app.callback(Output('network-graph', 'children'),
+              Input('memory-network', 'data')) 
+def displayGraph(data):
+    list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
+    nodes = data['nodes_network'] 
+    edges = data['edges_network']
+    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
+    stats_nodes = stats_nodes.set_index('title', drop = False)
+
+    # dynamic styling for network graph.
+    list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.index]
+    list_styles = []
+    for node in stats_nodes.index:
+        try: 
+            list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']], 
+                                'background-opacity': stats_nodes.loc[node]['degree_centrality'] + .2, 
                                 'shape': 'ellipse',
-                                'width': (stats_nodes[node]['centrality_normed'] * 5) + 1, 
-                                'height': (stats_nodes[node]['centrality_normed'] * 5) + 1,
-                                }) 
-        d = {'selector': list_selectors,
-            'style':   list_styles } 
-        pd_stylesheet = pd.DataFrame(d)
+                                'width':  (stats_nodes.loc[node]['degree_centrality']* 5) + 1, 
+                                'height': (stats_nodes.loc[node]['degree_centrality']* 5) + 1,
+                                })
+        except:
+            list_styles.append({'background-color': 'black', #  'blue', # list_colours[stats_nodes.loc[node]['community']], 
+                'background-opacity': 1, 
+                'shape': 'ellipse',
+                'width': 10, 
+                'height': 10,
+                })
+    d = {'selector': list_selectors,
+        'style':   list_styles } 
+    pd_stylesheet = pd.DataFrame(d)
+
+    return cyto.Cytoscape(
+                    id='cytoscape-graph',
+                    layout={'name': 'cose',
+                    'animate': True,
+                    'randomize': True, 
+                    'gravity': 1
+                }, 
+                style={'width': '100%', 'height': '650px'},
+                elements=nodes+edges,
+                stylesheet= 
+                    [
+                        {'selector': 'edge',
+                            'style': {
+                                'curve-style': 'haystack', # bezier
+                                'width': .03
+                        }}, 
+                        {'selector': 'node',
+                            'style': {
+                                'width': .01, 
+                                'height': .01
+                        }}, 
+                    ] + 
+                    pd_stylesheet.to_dict('records')  
+                )
+
+    
+
+@app.callback(Output('memory-tabs', 'children'),
+              Input('memory-network', 'data'))
+def render_content_tabs(data): 
+        stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
+        stats_nodes = stats_nodes.set_index('title', drop = False)
+
+        network_table_data = [ 
+            {'nodes':len(stats_nodes.index), # 
+            'communities': len(stats_nodes['community'].unique()), #  
+            'center': 'TODO', 
+            'clustering': 'TODO', 
+            'dominating set': 'TODO'} 
+        ]
 
         return (
             dbc.Row([
                 dbc.Card(
                     dbc.CardBody(
                         [
-                            cyto.Cytoscape(
-                                id='cytoscape-graph',
-                                layout={'name': 'cose',
-                                'animate': True,
-                                'randomize': True, 
-                                'gravity': 1
-                            }, 
-                            style={'width': '100%', 'height': '650px'},
-                            elements=nodes+edges,
-                            stylesheet= 
-                                [
-                                    {'selector': 'edge',
-                                        'style': {
-                                            'curve-style': 'haystack', # bezier
-                                            'width': .03
-                                    }}, 
-                                    {'selector': 'node',
-                                        'style': {
-                                            'width': .01, 
-                                            'height': .01
-                                    }}, 
-                                ] + 
-                                pd_stylesheet.to_dict('records')  
-                            )
+                            html.Div(id='network-graph')
                         ]
                     ), style={"width": "45%"},
                 ),
@@ -349,24 +387,8 @@ def render_content_tabs(data, value):
                                             [
                                                 html.H6("Data on network:"),
                                                 dash_table.DataTable(
-                                                    id='NetworkData-json',
-                                                        columns=[{"name": 'Network', "id": 'network'}, {"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Center', "id": 'center'}, {"name": 'Clustering', "id": 'clustering'} ], 
-                                                        data = data, 
-                                                        editable=True,
-                                                        row_deletable=False,
-                                                        style_table={'height': '75px', 'overflowY': 'auto'}
-                                                )
-                                            ]
-                                        ), 
-                                ),
-                                dbc.Card(
-                                    dbc.CardBody(
-                                            [
-                                                html.H6("Data on selected node:"),
-                                                dash_table.DataTable(
-                                                    id='tapNodeData-json',
-                                                    columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'Centrality'} ], # {"name": 'RAAC', "id": 'C'}],
-                                                    data = data, 
+                                                    columns=[{"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Center', "id": 'center'}, {"name": 'Clustering', "id": 'clustering'} ], 
+                                                    data = network_table_data, 
                                                     editable=True,
                                                     row_deletable=False,
                                                     style_table={'height': '75px', 'overflowY': 'auto'}
@@ -377,15 +399,16 @@ def render_content_tabs(data, value):
                                 dbc.Card(
                                     dbc.CardBody(
                                             [
+                                                html.H6("Data on selected node:"),
+                                                html.Div(id='node-table')
+                                            ]
+                                        ), 
+                                ),
+                                dbc.Card(
+                                    dbc.CardBody(
+                                            [
                                                 html.H6("Data on nodes in selected community:"),
-                                                dash_table.DataTable(
-                                                    id='tapCommunityData-json',
-                                                        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'Centrality'} ], 
-                                                        data = data, 
-                                                        editable=True,
-                                                        row_deletable=False,
-                                                        style_table={'height': '300px', 'overflowY': 'auto'}
-                                                )
+                                                html.Div(id='community-table')
                                             ]
                                         ), 
                                 ),
@@ -397,57 +420,30 @@ def render_content_tabs(data, value):
         ])
     )
 
-@app.callback(Output('NetworkData-json', 'data'),
-              Input('tabs-list', 'value')) 
-def displaytapNetworkData(value):
-    wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-    df_dict = [ 
-        {'network': value,
-        'nodes':len(wiki_page.getNodes()), # 
-        'edges':len(wiki_page.getEdges()), # 
-        'communities': len(wiki_page.getCommunities()), #  
-        'center': 'TODO', 
-        'clustering': 'TODO', 
-        'dominating set': 'TODO'} 
-    ]
-    return df_dict
+@app.callback(Output('node-table', 'children'),
+             Input('memory-network', 'data'),
+             Input('cytoscape-graph', 'tapNodeData')) 
+def displayTapNodeData(data, tapNodeData):  
+    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
+    stats_nodes = stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]
 
-@app.callback(Output('tapNodeData-json', 'data'),
-            Input('tabs-list', 'value'), 
-            Input('cytoscape-graph', 'tapNodeData')) 
-def displayTapNodeData(value, tapNodeData):
-    s = str(value)
-    lang = s.split('(', 1)[1].split(')')[0]
-    node_title = tapNodeData['id']
-    wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-    stats_nodes = wiki_page.getStatsNodes(threshold=0)
-    
-    df_dict = [v for (k,v) in network_data.items() if v['title'] == node_title if v['language'] == lang]
-    df_dict[0]['Centrality'] = stats_nodes[node_title]['Centrality']
+    return dash_table.DataTable(
+        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
+        data = stats_nodes.to_dict('records'),
+        style_table={'height': '75px', 'overflowY': 'auto'})
 
-    return df_dict
+@app.callback(Output('community-table', 'children'),
+             Input('memory-network', 'data'),
+             Input('cytoscape-graph', 'tapNodeData')) 
+def displayTapCommunityData(data, tapNodeData):
+    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
+    community = stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]['community']
+    stats_nodes = stats_nodes.loc[stats_nodes['community'] == int(community)].sort_values(by=['degree_centrality'], ascending=False)
 
-@app.callback(Output('tapCommunityData-json', 'data'),
-              Input('tabs-list', 'value'), 
-              Input('cytoscape-graph', 'tapNodeData')) 
-def displaytapCommunityData(value, tapNodeData):
-    s = str(value)
-    lang = s.split('(', 1)[1].split(')')[0]
-    node_title = tapNodeData['id']
-    wiki_page = WikiNetwork(node_title=all_networks[value]['*'], lang=all_networks[value]['lang'] )
-    communities = wiki_page.getCommunities()
-    selected_community = list([i for i in communities if node_title in i][0])
-    stats_nodes = wiki_page.getStatsNodes(threshold=0)
-    selected_stats_nodes = list([i for i in communities if node_title in i][0])
-
-    df_dict = [v for (k,v) in network_data.items() if v['title'] in selected_community if v['language'] == lang]
-    for item in df_dict: 
-        try: 
-            item.update( {'Centrality': stats_nodes[item['title']]['Centrality'] })
-        except: 
-            pass
-
-    return sorted(df_dict, key=lambda k: k['Centrality'], reverse=True)
+    return dash_table.DataTable(
+        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'} ], 
+        data = stats_nodes.to_dict('records'),
+        style_table={'height': '300px', 'overflowY': 'auto'})
 
 if __name__ == '__main__':
     app.run_server(debug=True)
