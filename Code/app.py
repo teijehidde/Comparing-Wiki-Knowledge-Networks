@@ -1,38 +1,18 @@
-# Setup packages (might be able to remove a few of these.)
-# packages needed for downloading, saving and loading data 
-import os
+# Setup packages 
 from collections import Counter
-import collections
-from dash_bootstrap_components._components.Col import Col 
-import json
-from networkx.algorithms.traversal.depth_first_search import dfs_labeled_edges
+from dash_bootstrap_components._components.Row import Row
 import pandas as pd
 import numpy as np
-from sklearn import preprocessing
-
-# packages for creation classes and network analysis 
 import networkx as nx
-from itertools import chain
-# import communities
-# from networkx.algorithms import approximation
-# from networkx.algorithms import community
 from networkx.algorithms.community import greedy_modularity_communities
-from networkx.utils import not_implemented_for 
-__all__ = [
-    "eccentricity",
-    "diameter",
-    "radius",
-    "periphery",
-    "center",
-    "barycenter",
-    "degree_centrality",
-    "constraint", 
-    "local_constraint", 
-    "effective_size"
-]
+import networkx.algorithms
+import networkx.utils # (algorithms to check out: "approximation", "eccentricity", "diameter", "radius", "periphery", "center", "barycenter", "Community" "degree_centrality", "constraint", "local_constraint", "effective_size") 
 
-# Dash packages for presentation analysis  
+# Dash packages needed for building dash app 
+
 import dash
+import dash_gif_component as Gif
+import base64
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
@@ -40,12 +20,11 @@ import dash_cytoscape as cyto
 import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-import plotly.express as px
 
 # setup layout and paths
-path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
-data_file = "data_new2.json" 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+path = "/home/teijehidde/Documents/Git Blog and Coding/"
+data_file = "data_dump/data_new2.json" 
+external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. Should appear in credits! 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
     'pre': {
@@ -53,66 +32,20 @@ styles = {
         'overflowX': 'scroll'
     }
 }
+colors = {
+    'background': 'white', # use color coding later. 
+    'text': 'gray'
+}
 
-# Setting functions
-# function: provide titles of networks that are saved in the JSON file. Also provides the language they were saved in. 
-def getDownloadedNetworks():
-
-    network_data_df = pd.read_json((path + data_file), orient='split')
-    available_wiki_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
-    
-    return(available_wiki_networks)
-
-def normalizing(val, max, min):
-    return (val - min) / (max - min); 
-
-def degreeCentrality(G):
-# function copy-pasted from: https://networkx.org/documentation/stable/_modules/networkx/algorithms/centrality/degree_alg.html#degree_centrality
-    
-    if len(G) <= 1:
-        return {n: 1 for n in G}
-
-    s = 1.0 / (len(G) - 1.0)
-    centrality = {n: d * s for n, d in G.degree()}
-    return centrality
-
-def eccentricity(G, v=None, sp=None):
-# function copy-pasted from: https://networkx.org/documentation/stable/_modules/networkx/algorithms/distance_measures.html#eccentricity
-
-    order = G.order()
-
-    e = {}
-    for n in G.nbunch_iter(v):
-        if sp is None:
-            length = nx.single_source_shortest_path_length(G, n)
-            L = len(length)
-        else:
-            try:
-                length = sp[n]
-                L = len(length)
-            except TypeError as e:
-                raise nx.NetworkXError('Format of "sp" is invalid.') from e
-        if L != order:
-            if G.is_directed():
-                msg = (
-                    "Found infinite path length because the digraph is not"
-                    " strongly connected"
-                )
-            else:
-                msg = "Found infinite path length because the graph is not" " connected"
-            raise nx.NetworkXError(msg)
-
-        e[n] = max(length.values())
-
-    if v in G:
-        return e[v]  # return single value
-    else:
-        return e
-
-
-all_networks = getDownloadedNetworks()
+# loading data. 
 network_data_df = pd.read_json((path + data_file), orient='split')
+all_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
+# new version: all_networks = network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 
+image_filename = path + 'data_dump/meComputer.gif' # replace with your own image
+encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+
+# setting up classes WikiNode and WikiNetwork. 
 class WikiNode:
     def __init__(self, node_title, lang, network_data):
 
@@ -178,16 +111,23 @@ class WikiNetwork(WikiNode):
         return result
 
     def getStatsNodes(self):
-        
         G = nx.Graph()
         G.add_edges_from(self.getEdges(type = 'networkx'))
         communities = greedy_modularity_communities(G)
-        degree_centrality_nodes = degreeCentrality(G)
-        eccentricity_nodes = eccentricity(G)
+        degree_centrality_nodes = networkx.algorithms.centrality.degree_centrality(G)
+        eccentricity_nodes = networkx.algorithms.distance_measures.eccentricity(G)
         dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
 
-        return pd.DataFrame({'degree_centrality':pd.Series(degree_centrality_nodes), 'eccentricity':pd.Series(eccentricity_nodes), 'community':pd.Series(dict_communities)}) 
+        df = pd.DataFrame({'degree_centrality':pd.Series(degree_centrality_nodes), 'eccentricity':pd.Series(eccentricity_nodes), 'community':pd.Series(dict_communities)}) 
 
+        val_max = max(df['degree_centrality'])
+        val_min = min(df['degree_centrality'])
+        df[['normalized_centrality']] = df[['degree_centrality']].apply(lambda x: (x - val_min) / (val_max - val_min), result_type = 'expand')
+        df[['degree_centrality']] = df[['degree_centrality']].apply(lambda x: round(x, 2))
+
+        return df
+
+# Basic layout app 
 navbar = html.Div(
     [
         dbc.Card(
@@ -195,13 +135,15 @@ navbar = html.Div(
                 [
                     dbc.Col(html.Div([dcc.Dropdown(
                         id='selected-network',
-                        options= [{'label': k, 'value': k} for k in all_networks]
+                        options= [{'label': k, 'value': k} for k in all_networks],
+                        placeholder='Step 1: Select a topic'
                         ),
                         ]), width = 3
                     ),
                     dbc.Col(html.Div([dcc.Dropdown(
                         id='language-options',
-                        multi=True
+                        multi=True, 
+                        placeholder='Step 2: Select languages'
                         ),
                         ]), width= 6
                     ),
@@ -227,37 +169,66 @@ tabs = html.Div(
 )
 
 overview = html.Div(
-    [
-        dbc.Card(
-                    [
-                        dbc.CardHeader("Introduction to the app."),
-                        dbc.CardBody(
-                            [
-                                html.H4("Introduction", className="card-title"),
-                                html.H6("How does this app work?", className="card-subtitle"),
-                                html.P(
-                                "Here is a brief one, two, three steps explaining how the app works.",
-                                className="card-text",
-                                ),
-                                dbc.CardLink("Card link", href="#"),
-                                dbc.CardLink("External link", href="https://google.com"),
-                            ]
-                        ),
-                    dbc.CardFooter("Consider donating to WIkipedia. See here: LINK HERE.")
-                ], style={"width": "100%"},
-            )
-    ]
-    )
+    [dbc.Card([
+                dbc.CardHeader(html.H4("Introduction", style = {"align": "center"})),
+                    dbc.Row([
+                        dbc.Card([
+                            dbc.CardBody(
+                                [
+                                    html.H6("What does this app do?", className="card-subtitle"),
+                                        dcc.Markdown('''
+                                                    This app shows a network of pagelinks from a _single_ wikipedia page across _multiple_ languages. 
+                                                    The app makes it possible to easily compare pagelinks networks for the same topic between languages.  
+
+                                                    Variations between these networks reflect different ways in which topics such as _secularism_, _religion_, _terrorism_ are linked to other topics on wikipedia.
+                                                    These differences are not due to language: the app only considers pagelinks, not text.
+                                                    Instead, they reflect the development of wikipedia, and popular understandings of these concepts, in each language. 
+
+                                                    '''),
+                                    html.H6("How does it work?", className="card-subtitle"),
+                                        dcc.Markdown('''
+                                                    * Step 1: Select a topic. 
+                                                    * Step 2: Select multiple languages to compare. A tab will appear per chosen language. 
+                                                    * Step 3: Select a tab, which contains a network graph and analysis. 
+
+                                                    Also see the clip to the right.
+                                                    '''),
+                                    html.H6("Credits", className="card-subtitle"),
+                                        dcc.Markdown('''
+                                                    All data used in this app was downloaded freely via the Wikimedia API.
+                                                    [Please consider donating to Wikimedia.](https://donate.wikimedia.org/wiki/Ways_to_Give)
+                                                    '''),
+                                ], 
+                            )], style={"width": "40%", "padding-left":"1%", "padding-right":"2%"}, 
+                            ), 
+                        dbc.Card([
+                            dbc.CardBody(
+                                [ 
+                                    dcc.Markdown(''' 
+                                            Here comes a clip of how the app works. 
+                                            '''
+                                            ),
+                                    html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()),
+                                    height=400)
+                                ]
+                            )], style={"width": "60%", "padding-left":"1%", "padding-right":"2%"},
+                            ),
+                    ]),
+                dbc.CardFooter('This app has been build using Dash.') # 
+                ], 
+            ),
+        ])
 
 app.layout = html.Div([
     dcc.Store(id='memory-network'),
-    dcc.Store(id='memory-tab'),
-    dcc.Store(id='memory-node-table'),  #storage_type='local'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
+    # dcc.Store(id='memory-tab'),
+    # dcc.Store(id='memory-node-table'),  #storage_type='local'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
     navbar,
     tabs,
     overview
 ])
 
+# Callbacks for functioning app. 
 @app.callback(
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
@@ -280,7 +251,6 @@ def render_tabs(value):
 
 @app.callback(Output('memory-network', 'data'),
               Input('tabs-list', 'value'),
-              # State('memory-selected-networks', 'data')
               ) 
 def createNetworkDataframe(value):
     if value is None:
@@ -292,8 +262,7 @@ def createNetworkDataframe(value):
     nodes = wiki_page.getNodes(type='cytoscape')
     edges = wiki_page.getEdges(type='cytoscape')
 
-    pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()])
-    pd_nodes = pd_nodes.set_index('title', drop = False)
+    pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()]).set_index('title', drop = False)
     pd_nodes = pd.concat([pd_nodes, stats_nodes], axis = 1)
 
     return {'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
@@ -311,23 +280,13 @@ def displayGraph(data):
     list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.index]
     list_styles = []
     for node in stats_nodes.index:
-        try: 
-            list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']], 
-                                'background-opacity': stats_nodes.loc[node]['degree_centrality'] + .2, 
-                                'shape': 'ellipse',
-                                'width':  (stats_nodes.loc[node]['degree_centrality']* 5) + 1, 
-                                'height': (stats_nodes.loc[node]['degree_centrality']* 5) + 1,
-                                })
-        except:
-            list_styles.append({'background-color': 'black', #  'blue', # list_colours[stats_nodes.loc[node]['community']], 
-                'background-opacity': 1, 
-                'shape': 'ellipse',
-                'width': 10, 
-                'height': 10,
-                })
-    d = {'selector': list_selectors,
-        'style':   list_styles } 
-    pd_stylesheet = pd.DataFrame(d)
+        list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']], 
+                            'background-opacity': stats_nodes.loc[node]['normalized_centrality'] + .2, 
+                            'shape': 'ellipse',
+                            'width':  (stats_nodes.loc[node]['normalized_centrality']* 5) + 1, 
+                            'height': (stats_nodes.loc[node]['normalized_centrality']* 5) + 1,
+                            })
+    pd_stylesheet = pd.DataFrame({'selector': list_selectors, 'style': list_styles } )
 
     return cyto.Cytoscape(
                     id='cytoscape-graph',
@@ -353,8 +312,6 @@ def displayGraph(data):
                     ] + 
                     pd_stylesheet.to_dict('records')  
                 )
-
-    
 
 @app.callback(Output('memory-tabs', 'children'),
               Input('memory-network', 'data'))

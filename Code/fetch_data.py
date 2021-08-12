@@ -6,22 +6,10 @@ import pandas as pd
 
 additional_download_languages = {'Arabic': 'ar', 'Chinese': 'zh', 'French': 'fr',  'Russian': 'ru', 'Spanish': 'es'}
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
-data_file = "data_new2.json"
+data_file = "data_new3.json"
 
-# Check if json file "DATA_FILE" is present in folder. -- This should (give option to) create a new file if none exists! 
-def WikiNetworkDataMAIN():
-    os.system('clear')
-
-    try:
-        pd.read_json((path + data_file), orient='split')
-        print("The file " + data_file + " found.")
-        SelectMenu()
-    except IOError:
-        print("Error: Could not find " + data_file + ". Please check if file is present in directory, or change data_file value.")
-
-# Function A: the actual function that calls the wikipedia API and outputs a panda table with curated date. 
+# Function A: the function that calls the wikipedia API and outputs a panda table with curated data. 
 def downloadWikiNetwork(node_title, lang = "en"):
-
     api_endpoint = "https://" + lang + ".wikipedia.org/w/api.php" # fr.wikipedia.org; https://en.wikipedia.org
     wiki_data = []
     print("Starting download of network " + node_title + " in language " + lang + ".")
@@ -63,7 +51,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
         "gpllimit": 500, 
         "plnamespace": 0,
         "pllimit": 500, 
-        "prop": "info|links", 
+        "prop": "info|links|langlinks", 
         "format": "json"
     }
     response = S.get(url=api_endpoint, params=params_network_title)
@@ -74,6 +62,10 @@ def downloadWikiNetwork(node_title, lang = "en"):
         if 'plcontinue' in wiki_data[-1]['continue']:
             params_cont["plcontinue"] = wiki_data[-1]['continue']['plcontinue'] 
             print('plcontinue: ' + params_cont["plcontinue"])
+
+        elif 'llcontinue' in wiki_data[-1]['continue']:
+            params_cont["llcontinue"] = wiki_data[-1]['continue']['llcontinue'] 
+            print('llcontinue: ' + params_cont["llcontinue"])
 
         elif 'gplcontinue' in wiki_data[-1]['continue']: 
             params_cont["gplcontinue"] = wiki_data[-1]['continue']['gplcontinue']
@@ -92,11 +84,13 @@ def downloadWikiNetwork(node_title, lang = "en"):
     all_nodes = [str(i) for i in all_nodes]
     
     network_data_df = pd.DataFrame(
-        columns = ['title', 'lang', 'pageid', 'uniqueid', 'lastrevid', 'links', 'langlinks'], # complete list: ['ns', 'title', 'missing', 'contentmodel', 'pagelanguage', 'pagelanguagehtmlcode', 'pageid', 'lastrevid', 'length', 'links', 'langlinks']
+        columns = ['title', 'lang', 'pageid', 'uniqueid', 'lastrevid', 'links', 'langlinks', 'ego'], # complete list: ['ns', 'title', 'missing', 'contentmodel', 'pagelanguage', 'pagelanguagehtmlcode', 'pageid', 'lastrevid', 'length', 'links', 'langlinks']
         index = all_nodes)
 
     # 4: Using all_nodes to go through list of raw data from API. 
     for node in all_nodes:
+        if node == node_title: 
+            network_data_df.at[node, 'ego'] == True
         network_data_df.at[node,'links'] = []
         for item in wiki_data:
             if node in item['query']['pages'].keys(): # possibility:  df_new_wiki_data.update(item) #, errors = 'raise') 
@@ -116,7 +110,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
     # returns panda with all data from network. 
     return network_data_df
 
-# Function B: Downloading multiple languages and saving them to json/panda file. 
+# Function B: Downloading multiple languages of one topic and saving them to json/panda file. 
 def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = ["ar", "de", "fr", "nl"]): # or: 'available_langs'
     network_data_df = downloadWikiNetwork(node_title=node_title, lang=original_lang)
     available_langs = network_data_df.loc[network_data_df['langlinks'].notnull()]['langlinks'].values.tolist()[0]
@@ -131,13 +125,15 @@ def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_la
                 network_data_df_additional = downloadWikiNetwork(node_title = item['*'], lang = item['lang'])
                 network_data_df = pd.concat([network_data_df, network_data_df_additional], ignore_index=True, sort=False)
                 
-    network_data_saved = pd.read_json((path + data_file), orient='split')
+    try: 
+        network_data_saved = pd.read_json((path + data_file), orient='split')
+    except:
+        network_data_saved = None
     network_data_df = pd.concat([network_data_df, network_data_saved], ignore_index=True, sort=False)
     network_data_df = network_data_df.loc[network_data_df.astype(str).drop_duplicates(subset=['title', 'lang', 'pageid'], keep = 'first').index].reset_index(drop=True)
     network_data_df.to_json((path + data_file), orient='split')
     print("Download of network and additional languages finished. Returning to main menu...") 
     time.sleep(5) 
-
 
 # Function 0: Select function to be run on json file.  
 def SelectMenu():
@@ -170,8 +166,8 @@ def SelectMenu():
 # Function 1: provide overview of available networks. 
 def overviewNetworks():
     network_data_df = pd.read_json((path + data_file), orient='split')
-    available_wiki_networks = network_data_df.loc[network_data_df['langlinks'].notnull()]
-    available_wiki_networks['number_of_links'] = available_wiki_networks['links'].apply(lambda x: len(x)) # here it throws an error. FIX. 
+    available_wiki_networks = network_data_df.loc[network_data_df['ego'] == True]
+    available_wiki_networks[['number_of_links']] = available_wiki_networks['links'].apply(lambda x: len(x)) # here it throws an error. FIX. 
 
     print(available_wiki_networks[['title', 'lang', 'pageid', 'number_of_links']] ) 
 
@@ -210,6 +206,6 @@ def downloadNetworks():
 
 # NB: RUNTIME 
 if __name__ == '__main__':
-    WikiNetworkDataMAIN()
+    SelectMenu()
 
 # END 
