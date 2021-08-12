@@ -11,8 +11,6 @@ import networkx.utils # (algorithms to check out: "approximation", "eccentricity
 # Dash packages needed for building dash app 
 
 import dash
-import dash_gif_component as Gif
-import base64
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
 import dash_html_components as html
@@ -36,14 +34,12 @@ colors = {
     'background': 'white', # use color coding later. 
     'text': 'gray'
 }
+list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
 
 # loading data. 
 network_data_df = pd.read_json((path + data_file), orient='split')
 all_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 # new version: all_networks = network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
-
-image_filename = path + 'data_dump/meComputer.gif' # replace with your own image
-encoded_image = base64.b64encode(open(image_filename, 'rb').read())
 
 # setting up classes WikiNode and WikiNetwork. 
 class WikiNode:
@@ -203,13 +199,12 @@ overview = html.Div(
                             ), 
                         dbc.Card([
                             dbc.CardBody(
-                                [ 
-                                    dcc.Markdown(''' 
-                                            Here comes a clip of how the app works. 
-                                            '''
-                                            ),
-                                    html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()),
-                                    height=400)
+                                [
+                                    html.Iframe(
+                                        width="100%", 
+                                        height="500", 
+                                        src=f'https://www.youtube.com/embed/_jWbqhP5eJI'
+                                    )
                                 ]
                             )], style={"width": "60%", "padding-left":"1%", "padding-right":"2%"},
                             ),
@@ -265,12 +260,11 @@ def createNetworkDataframe(value):
     pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()]).set_index('title', drop = False)
     pd_nodes = pd.concat([pd_nodes, stats_nodes], axis = 1)
 
-    return {'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
+    return {'node_title': node_title, 'lang': lang, 'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
 
 @app.callback(Output('network-graph', 'children'),
               Input('memory-network', 'data')) 
 def displayGraph(data):
-    list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
     nodes = data['nodes_network'] 
     edges = data['edges_network']
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
@@ -295,7 +289,7 @@ def displayGraph(data):
                     'randomize': True, 
                     'gravity': 1
                 }, 
-                style={'width': '100%', 'height': '650px'},
+                style={'width': '100%', 'height': '900px'},
                 elements=nodes+edges,
                 stylesheet= 
                     [
@@ -342,13 +336,22 @@ def render_content_tabs(data):
                                 [dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on network:"),
+                                                html.H6("Network:"),
                                                 dash_table.DataTable(
-                                                    columns=[{"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Center', "id": 'center'}, {"name": 'Clustering', "id": 'clustering'} ], 
+                                                    columns=[{"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Clustering', "id": 'clustering'}], 
                                                     data = network_table_data, 
                                                     editable=True,
                                                     row_deletable=False,
-                                                    style_table={'height': '75px', 'overflowY': 'auto'}
+                                                    style_table={'height': '60px', 'overflowY': 'auto'}, 
+                                                    style_cell={'textAlign': 'left'},                                                
+                                                ), 
+                                                dash_table.DataTable(
+                                                    columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Centrality', "id": 'degree_centrality'}], 
+                                                    data = stats_nodes.sort_values(by=['degree_centrality'], ascending=False).to_dict('records'),
+                                                    editable=True,
+                                                    row_deletable=False,
+                                                    style_table={'height': '100px', 'overflowY': 'auto'}, 
+                                                    style_cell={'textAlign': 'left'},
                                                 )
                                             ]
                                         ), 
@@ -356,16 +359,19 @@ def render_content_tabs(data):
                                 dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on selected node:"),
-                                                html.Div(id='node-table')
-                                            ]
+                                                html.H6("Data on communities:"),
+                                                dbc.Col([ 
+                                                dcc.Tabs(id='community-tabs-list', value = None), 
+                                                html.Div(id='community-table')
+                                                ]),
+                                            ], 
                                         ), 
                                 ),
                                 dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on nodes in selected community:"),
-                                                html.Div(id='community-table')
+                                                html.H6("Data on selected nodes:"),
+                                                html.Div(id='node-table')
                                             ]
                                         ), 
                                 ),
@@ -377,30 +383,44 @@ def render_content_tabs(data):
         ])
     )
 
+@app.callback(Output('community-tabs-list', 'children'),
+             Input('memory-network', 'data')) 
+def displayCommunityTabs(data):
+    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
+    number_community = set(stats_nodes['community'].tolist())
+    return [dcc.Tab(label = 'Community {}'.format(n), value = n, style={'height': '60px', 'color': list_colours[n]}) for n in number_community]
+
+@app.callback(Output('community-table', 'children'),
+              Input('community-tabs-list', 'value'),
+              Input('memory-network', 'data')) 
+def displayCommunityData(value, data):
+    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
+    stats_nodes = stats_nodes.loc[stats_nodes['community'] == int(value)]
+
+    return dash_table.DataTable(
+        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'} ], 
+        data = stats_nodes.sort_values(by=['degree_centrality'], ascending=False).to_dict('records'),
+        style_table={'height': '200px', 'overflowY': 'auto'})
+
 @app.callback(Output('node-table', 'children'),
              Input('memory-network', 'data'),
              Input('cytoscape-graph', 'tapNodeData')) 
 def displayTapNodeData(data, tapNodeData):  
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
     stats_nodes = stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]
-
-    return dash_table.DataTable(
-        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
-        data = stats_nodes.to_dict('records'),
-        style_table={'height': '75px', 'overflowY': 'auto'})
-
-@app.callback(Output('community-table', 'children'),
-             Input('memory-network', 'data'),
-             Input('cytoscape-graph', 'tapNodeData')) 
-def displayTapCommunityData(data, tapNodeData):
-    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
-    community = stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]['community']
-    stats_nodes = stats_nodes.loc[stats_nodes['community'] == int(community)].sort_values(by=['degree_centrality'], ascending=False)
-
-    return dash_table.DataTable(
-        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'} ], 
-        data = stats_nodes.to_dict('records'),
-        style_table={'height': '300px', 'overflowY': 'auto'})
+    return dbc.Col(
+                    [
+                        dash_table.DataTable(
+                            columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
+                            data = stats_nodes.to_dict('records'),
+                            style_table={'height': '75px', 'overflowY': 'auto'},
+                            style_cell={'textAlign': 'left'}),                        
+                        html.Iframe(
+                            width="100%", 
+                            height="400", 
+                            src=f'https://{data["lang"]}.wikipedia.org/wiki/{tapNodeData["id"]}')
+                    ], 
+    )
 
 if __name__ == '__main__':
     app.run_server(debug=True)
