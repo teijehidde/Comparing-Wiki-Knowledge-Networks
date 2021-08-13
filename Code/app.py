@@ -21,7 +21,7 @@ from dash.exceptions import PreventUpdate
 
 # setup layout and paths
 path = "/home/teijehidde/Documents/Git Blog and Coding/"
-data_file = "data_dump/data_new2.json" 
+data_file = "data_dump/data_new5.json" 
 external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. Should appear in credits! 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
@@ -34,12 +34,13 @@ colors = {
     'background': 'white', # use color coding later. 
     'text': 'gray'
 }
-list_colours = ['red', 'blue', 'purple','orange','green','olive', 'maroon', 'brown','lime','teal' ]
+list_colours = ['blue', 'green','red', 'gray', 'maroon', 'yellow',  'black']
+list_bootstrap_colours = ['primary',  'success','danger', 'secondary', 'info', 'warning', 'dark']
 
 # loading data. 
 network_data_df = pd.read_json((path + data_file), orient='split')
-all_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
-# new version: all_networks = network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
+# old version: all_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
+all_networks = network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 
 # setting up classes WikiNode and WikiNetwork. 
 class WikiNode:
@@ -342,35 +343,27 @@ def render_content_tabs(data):
                                                     data = network_table_data, 
                                                     editable=True,
                                                     row_deletable=False,
-                                                    style_table={'height': '60px', 'overflowY': 'auto'}, 
+                                                    style_table={'height': '75px', 'overflowY': 'auto'}, 
                                                     style_cell={'textAlign': 'left'},                                                
-                                                ), 
-                                                dash_table.DataTable(
-                                                    columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Centrality', "id": 'degree_centrality'}], 
-                                                    data = stats_nodes.sort_values(by=['degree_centrality'], ascending=False).to_dict('records'),
-                                                    editable=True,
-                                                    row_deletable=False,
-                                                    style_table={'height': '100px', 'overflowY': 'auto'}, 
-                                                    style_cell={'textAlign': 'left'},
-                                                )
+                                                ),
                                             ]
                                         ), 
                                 ),
+                                dbc.Card([
+                                    dbc.CardHeader(
+                                        # html.H6("Data on communities:"),
+                                            dbc.Tabs(
+                                                id='community-tabs-list',
+                                                card = True, 
+                                                active_tab = 1,
+                                            )
+                                    ),
+                                    dbc.CardBody(id='community-table-content')
+                                ]),
                                 dbc.Card(
                                     dbc.CardBody(
                                             [
-                                                html.H6("Data on communities:"),
-                                                dbc.Col([ 
-                                                dcc.Tabs(id='community-tabs-list', value = None), 
-                                                html.Div(id='community-table')
-                                                ]),
-                                            ], 
-                                        ), 
-                                ),
-                                dbc.Card(
-                                    dbc.CardBody(
-                                            [
-                                                html.H6("Data on selected nodes:"),
+                                                html.H6("Selected node:"),
                                                 html.Div(id='node-table')
                                             ]
                                         ), 
@@ -388,19 +381,23 @@ def render_content_tabs(data):
 def displayCommunityTabs(data):
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
     number_community = set(stats_nodes['community'].tolist())
-    return [dcc.Tab(label = 'Community {}'.format(n), value = n, style={'height': '60px', 'color': list_colours[n]}) for n in number_community]
 
-@app.callback(Output('community-table', 'children'),
-              Input('community-tabs-list', 'value'),
+    return [dbc.Tab(label = 'Community {}'.format(n +1), tab_id = n + 1, label_style={"color": list_colours[n]} ) for n in number_community] # NB: I add 1 to n here to avoid using 0 as ID in tabs. This seems not to work. Bug in dbc? 
+
+@app.callback(Output('community-table-content', 'children'),
+              Input('community-tabs-list', 'active_tab'),
               Input('memory-network', 'data')) 
-def displayCommunityData(value, data):
+def displayCommunityTabContent(active_tab, data):
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
-    stats_nodes = stats_nodes.loc[stats_nodes['community'] == int(value)]
+    stats_nodes = stats_nodes.loc[stats_nodes['community'] == (active_tab - 1)]
 
-    return dash_table.DataTable(
-        columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'} ], 
-        data = stats_nodes.sort_values(by=['degree_centrality'], ascending=False).to_dict('records'),
-        style_table={'height': '200px', 'overflowY': 'auto'})
+    return dbc.Card([
+            dash_table.DataTable(
+                columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'} ], 
+                data = stats_nodes.sort_values(by=['degree_centrality'], ascending=False).to_dict('records'),
+                style_table={'height': '200px', 'overflowY': 'auto'}) 
+            ], color= list_bootstrap_colours[active_tab - 1], outline=True
+        )
 
 @app.callback(Output('node-table', 'children'),
              Input('memory-network', 'data'),
@@ -408,18 +405,22 @@ def displayCommunityData(value, data):
 def displayTapNodeData(data, tapNodeData):  
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
     stats_nodes = stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]
-    return dbc.Col(
-                    [
+    community = stats_nodes['community']
+    return dbc.Card([
+                dbc.CardHeader(
                         dash_table.DataTable(
-                            columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
+                            columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
                             data = stats_nodes.to_dict('records'),
                             style_table={'height': '75px', 'overflowY': 'auto'},
-                            style_cell={'textAlign': 'left'}),                        
+                            style_cell={'textAlign': 'left'}),
+                ), 
+                dbc.CardBody(                      
                         html.Iframe(
                             width="100%", 
                             height="400", 
                             src=f'https://{data["lang"]}.wikipedia.org/wiki/{tapNodeData["id"]}')
-                    ], 
+                )
+        ], color= list_bootstrap_colours[int(community)], outline=True
     )
 
 if __name__ == '__main__':
