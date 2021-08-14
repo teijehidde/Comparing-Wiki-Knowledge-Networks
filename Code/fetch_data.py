@@ -8,7 +8,7 @@ additional_download_languages = {'Arabic': 'ar', 'Chinese': 'zh', 'French': 'fr'
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
 data_file = "data_new3.json"
 
-# Function A: the function that calls the wikipedia API and outputs a panda table with curated data. 
+# Function A: Call API. 
 def downloadWikiNetwork(node_title, lang = "en"):
     api_endpoint = "https://" + lang + ".wikipedia.org/w/api.php" # fr.wikipedia.org; https://en.wikipedia.org
     wiki_data = []
@@ -49,9 +49,11 @@ def downloadWikiNetwork(node_title, lang = "en"):
         "titles": node_title,
         "gplnamespace": 0, 
         "gpllimit": 500, 
-        "plnamespace": 0,
-        "pllimit": 500, 
         "prop": "info|links|langlinks", 
+        "plnamespace": 0,
+        "pllimit": 500,
+        "lllang": "en", 
+        "lllimit":500,
         "format": "json"
     }
     response = S.get(url=api_endpoint, params=params_network_title)
@@ -89,9 +91,8 @@ def downloadWikiNetwork(node_title, lang = "en"):
 
     # 4: Using all_nodes to go through list of raw data from API. 
     for node in all_nodes:
-        if node == node_title: 
-            network_data_df.at[node, 'ego'] == True
         network_data_df.at[node,'links'] = []
+        network_data_df.at[node,'langlinks'] = []
         for item in wiki_data:
             if node in item['query']['pages'].keys(): # possibility:  df_new_wiki_data.update(item) #, errors = 'raise') 
                 network_data_df.at[node, 'title'] = item['query']['pages'][node]['title']
@@ -99,21 +100,22 @@ def downloadWikiNetwork(node_title, lang = "en"):
                 network_data_df.at[node,'pageid'] = item['query']['pages'][node]['pageid']
                 network_data_df.at[node,'uniqueid'] = network_data_df.at[node,'lang'] + str(network_data_df.at[node,'pageid'])
                 network_data_df.at[node,'lastrevid'] = item['query']['pages'][node]['lastrevid']
+                if network_data_df.at[node,'title'] == node_title: network_data_df.at[node,'ego'] = True
 
                 if 'links' in item['query']['pages'][node].keys():
                     for link in item['query']['pages'][node]['links']:
                         network_data_df.at[node,'links'].append(link['title'])
 
-                if 'langlinks' in item['query']['pages'][node].keys():
-                    network_data_df.at[node,'langlinks'] = item['query']['pages'][node]['langlinks']
+                if 'langlinks' in item['query']['pages'][node].keys(): 
+                    network_data_df.at[node,'langlinks'] = network_data_df.at[node,'langlinks'] + item['query']['pages'][node]['langlinks']
 
     # returns panda with all data from network. 
     return network_data_df
 
 # Function B: Downloading multiple languages of one topic and saving them to json/panda file. 
-def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = ["ar", "de", "fr", "nl"]): # or: 'available_langs'
+def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = ["ar", "ja", "es", "zh", "fr", "ru"]): # or: 'available_langs'
     network_data_df = downloadWikiNetwork(node_title=node_title, lang=original_lang)
-    available_langs = network_data_df.loc[network_data_df['langlinks'].notnull()]['langlinks'].values.tolist()[0]
+    available_langs = network_data_df.loc[network_data_df['ego'] == True]['langlinks'].values.tolist()[0]
 
     if additional_langs == []:
         print('The wikipedia page is available in the following languages:')         
@@ -130,7 +132,7 @@ def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_la
     except:
         network_data_saved = None
     network_data_df = pd.concat([network_data_df, network_data_saved], ignore_index=True, sort=False)
-    network_data_df = network_data_df.loc[network_data_df.astype(str).drop_duplicates(subset=['title', 'lang', 'pageid'], keep = 'first').index].reset_index(drop=True)
+    network_data_df = network_data_df.loc[network_data_df.astype(str).drop_duplicates(subset=['title', 'lang', 'ego'], keep = 'first').index].reset_index(drop=True)
     network_data_df.to_json((path + data_file), orient='split')
     print("Download of network and additional languages finished. Returning to main menu...") 
     time.sleep(5) 
