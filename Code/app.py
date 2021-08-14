@@ -6,6 +6,7 @@ import numpy as np
 import networkx as nx
 from networkx.algorithms.community import greedy_modularity_communities
 import networkx.algorithms
+import base64
 import networkx.utils # (algorithms to check out: "approximation", "eccentricity", "diameter", "radius", "periphery", "center", "barycenter", "Community" "degree_centrality", "constraint", "local_constraint", "effective_size") 
 
 # Dash packages needed for building dash app 
@@ -36,10 +37,11 @@ colors = {
 }
 list_colours = ['blue', 'green','red', 'gray', 'maroon', 'yellow',  'black']
 list_bootstrap_colours = ['primary',  'success','danger', 'secondary', 'info', 'warning', 'dark']
+image_filename = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/assets/banner.png' 
+encoded_image = base64.b64encode(open(image_filename, 'rb').read())
 
 # loading data. 
 network_data_df = pd.read_json((path + data_file), orient='split')
-# old version: all_networks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 all_networks = network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 
 # setting up classes WikiNode and WikiNetwork. 
@@ -125,9 +127,9 @@ class WikiNetwork(WikiNode):
         return df
 
 # Basic layout app 
-navbar = html.Div(
-    [
-        dbc.Card(
+navbar = dbc.Card(
+# html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()))), 
+    dbc.CardBody(
             dbc.Row(
                 [
                     dbc.Col(html.Div([dcc.Dropdown(
@@ -145,10 +147,8 @@ navbar = html.Div(
                         ]), width= 6
                     ),
                 ], justify="center", 
-        ), body = True
-        ), 
-    ]
-)
+        )), body = True
+    )
 
 tabs = html.Div(
     dbc.Card(
@@ -217,8 +217,6 @@ overview = html.Div(
 
 app.layout = html.Div([
     dcc.Store(id='memory-network'),
-    # dcc.Store(id='memory-tab'),
-    # dcc.Store(id='memory-node-table'),  #storage_type='local'), # Can potentially be used to save graphs of tabs so they do not need to reload. 
     navbar,
     tabs,
     overview
@@ -229,16 +227,13 @@ app.layout = html.Div([
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
 def set_network_options(selected_network):
+    page_langs = pd.DataFrame(network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en'].loc[network_data_df['title'] == selected_network]['langlinks'].iloc[0]).rename(columns={'*': 'title'})
+    saved_langs = network_data_df.loc[network_data_df['ego'] == True][['lang', 'title']]
     
-    all_networks_keys = network_data_df.loc[network_data_df['langlinks'].notnull()]['title'].values.tolist()
-    all_networks_values = network_data_df.loc[network_data_df['langlinks'].notnull()]['lang'].values.tolist()
-    all_networks = dict(zip(all_networks_keys, all_networks_values))
+    options_langs =  [{'lang': 'en', 'title': selected_network}] + pd.merge(saved_langs, page_langs, how ='inner', on =['lang', 'title']).to_dict('records')
+    language_options = ["{}: {}".format(list(a.values())[0], list(a.values())[1]) for a in options_langs]
 
-    node_title_langlinks = network_data_df.loc[network_data_df['langlinks'].notnull()].loc[network_data_df['title'] == selected_network].loc[network_data_df['lang'] == 'en']['langlinks'].values.tolist()[0]
-    node_title_langlinks = [i['*'] for i in node_title_langlinks]
-    language_options = [("{}: {}".format(v,k), v)  for k,v in all_networks.items() if k in node_title_langlinks]
-
-    return [{'label': a, 'value': a} for a,b in language_options]
+    return [{'label': a, 'value': a} for a in language_options]
 
 @app.callback(Output('tabs-list', 'children'),
               Input('language-options', 'value'))
@@ -270,12 +265,13 @@ def displayGraph(data):
     edges = data['edges_network']
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
     stats_nodes = stats_nodes.set_index('title', drop = False)
+    # community_numbers = stats_nodes.loc['community'].apply(lambda x: str(x))
 
     # dynamic styling for network graph.
     list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.index]
     list_styles = []
     for node in stats_nodes.index:
-        list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']], 
+        list_styles.append({'background-color': 'blue', # list_colours[community_numbers[[node]]], #  'blue', # list_colours[stats_nodes.loc[node]['community']],  # this is BUG 
                             'background-opacity': stats_nodes.loc[node]['normalized_centrality'] + .2, 
                             'shape': 'ellipse',
                             'width':  (stats_nodes.loc[node]['normalized_centrality']* 5) + 1, 
@@ -316,6 +312,7 @@ def render_content_tabs(data):
 
         network_table_data = [ 
             {'nodes':len(stats_nodes.index), # 
+            'edges':len(data['edges_network']), # 
             'communities': len(stats_nodes['community'].unique()), #  
             'center': 'TODO', 
             'clustering': 'TODO', 
@@ -351,7 +348,6 @@ def render_content_tabs(data):
                                 ),
                                 dbc.Card([
                                     dbc.CardHeader(
-                                        # html.H6("Data on communities:"),
                                             dbc.Tabs(
                                                 id='community-tabs-list',
                                                 card = True, 
@@ -361,13 +357,7 @@ def render_content_tabs(data):
                                     dbc.CardBody(id='community-table-content')
                                 ]),
                                 dbc.Card(
-                                    dbc.CardBody(
-                                            [
-                                                html.H6("Selected node:"),
-                                                html.Div(id='node-table')
-                                            ]
-                                        ), 
-                                ),
+                                    dbc.CardBody(id='node-table')),
                                 ]
                             ),
                             ]
@@ -400,8 +390,8 @@ def displayCommunityTabContent(active_tab, data):
         )
 
 @app.callback(Output('node-table', 'children'),
-             Input('memory-network', 'data'),
-             Input('cytoscape-graph', 'tapNodeData')) 
+              Input('memory-network', 'data'),
+              Input('cytoscape-graph', 'tapNodeData')) 
 def displayTapNodeData(data, tapNodeData):  
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
     stats_nodes = stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]
@@ -409,7 +399,7 @@ def displayTapNodeData(data, tapNodeData):
     return dbc.Card([
                 dbc.CardHeader(
                         dash_table.DataTable(
-                            columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
+                            columns=[{"name": 'Selected node', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
                             data = stats_nodes.to_dict('records'),
                             style_table={'height': '75px', 'overflowY': 'auto'},
                             style_cell={'textAlign': 'left'}),
@@ -418,7 +408,7 @@ def displayTapNodeData(data, tapNodeData):
                         html.Iframe(
                             width="100%", 
                             height="400", 
-                            src=f'https://{data["lang"]}.wikipedia.org/wiki/{tapNodeData["id"]}')
+                            src=f'https://{data["lang"]}.wikipedia.org/wiki/{tapNodeData["id"]}', sandbox=None)
                 )
         ], color= list_bootstrap_colours[int(community)], outline=True
     )
