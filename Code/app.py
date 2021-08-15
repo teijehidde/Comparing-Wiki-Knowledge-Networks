@@ -22,7 +22,7 @@ from dash.exceptions import PreventUpdate
 
 # setup layout and paths
 path = "/home/teijehidde/Documents/Git Blog and Coding/"
-data_file = "data_dump/data_new5.json" 
+data_file = "data_dump/data_new6.json" 
 external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. Should appear in credits! 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
@@ -122,9 +122,29 @@ class WikiNetwork(WikiNode):
         val_max = max(df['degree_centrality'])
         val_min = min(df['degree_centrality'])
         df[['normalized_centrality']] = df[['degree_centrality']].apply(lambda x: (x - val_min) / (val_max - val_min), result_type = 'expand')
-        df[['degree_centrality']] = df[['degree_centrality']].apply(lambda x: round(x, 2))
+        df[['round_centrality_in_network']] = df[['degree_centrality']].apply(lambda x: round(x, 2))
 
         return df
+
+"""    def getStatsCommunities(self):
+        G = nx.Graph()
+        G.add_edges_from(self.getEdges(type = 'networkx'))
+        communities = greedy_modularity_communities(G)
+
+        for community in communities:
+            
+        degree_centrality_nodes = networkx.algorithms.centrality.degree_centrality(G)
+        eccentricity_nodes = networkx.algorithms.distance_measures.eccentricity(G)
+        dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
+
+        df = pd.DataFrame({'degree_centrality':pd.Series(degree_centrality_nodes), 'eccentricity':pd.Series(eccentricity_nodes), 'community':pd.Series(dict_communities)}) 
+
+        val_max = max(df['degree_centrality'])
+        val_min = min(df['degree_centrality'])
+        df[['normalized_centrality']] = df[['degree_centrality']].apply(lambda x: (x - val_min) / (val_max - val_min), result_type = 'expand')
+        df[['round_centrality_in_network']] = df[['degree_centrality']].apply(lambda x: round(x, 2))
+
+        return df"""
 
 # Basic layout app 
 navbar = dbc.Card(
@@ -230,7 +250,7 @@ def set_network_options(selected_network):
     page_langs = pd.DataFrame(network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en'].loc[network_data_df['title'] == selected_network]['langlinks'].iloc[0]).rename(columns={'*': 'title'})
     saved_langs = network_data_df.loc[network_data_df['ego'] == True][['lang', 'title']]
     
-    options_langs =  [{'lang': 'en', 'title': selected_network}] + pd.merge(saved_langs, page_langs, how ='inner', on =['lang', 'title']).to_dict('records')
+    options_langs =  [{'lang': 'en', 'title': selected_network}] + pd.merge(saved_langs, page_langs, how ='inner', on =['lang', 'title']).drop_duplicates(subset=['title', 'lang'], keep = 'first').reset_index(drop=True).to_dict('records')
     language_options = ["{}: {}".format(list(a.values())[0], list(a.values())[1]) for a in options_langs]
 
     return [{'label': a, 'value': a} for a in language_options]
