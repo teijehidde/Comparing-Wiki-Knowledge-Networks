@@ -57,7 +57,7 @@ class WikiNode:
 
 class WikiNetwork(WikiNode):
    
-    def __init__(self,node_title, lang, threshold = 0):
+    def __init__(self, node_title, lang, threshold = 0):
         
         WikiNode.__init__(self, node_title, lang, network_data = network_data_df)
         self.threshold = threshold
@@ -98,53 +98,37 @@ class WikiNetwork(WikiNode):
         if type == 'cytoscape':
             return [{'data': {'source': a, "target": b}} for a,b in edges_network]
 
-    def getCommunities(self):  
-        G = nx.Graph()
-        G.add_edges_from(self.getEdges(type = 'networkx'))
-        communities = greedy_modularity_communities(G)
-
-        result = []
-        for number in range(len(communities)): 
-            result = result + [{i: number} for i in list(communities[number])] 
-
-        return result
-
     def getStatsNodes(self):
         G = nx.Graph()
         G.add_edges_from(self.getEdges(type = 'networkx'))
-        communities = greedy_modularity_communities(G)
-        degree_centrality_nodes = networkx.algorithms.centrality.degree_centrality(G)
-        eccentricity_nodes = networkx.algorithms.distance_measures.eccentricity(G)
-        dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
+        centrality_nodes = networkx.algorithms.centrality.eigenvector_centrality(G)
+        # eccentricity_nodes = networkx.algorithms.distance_measures.eccentricity(G) # depricated. 
+        df = pd.DataFrame({'network_centrality':pd.Series(centrality_nodes)}) #  'eccentricity':pd.Series(eccentricity_nodes) # depricated. 
 
-        df = pd.DataFrame({'degree_centrality':pd.Series(degree_centrality_nodes), 'eccentricity':pd.Series(eccentricity_nodes), 'community':pd.Series(dict_communities)}) 
-
-        val_max = max(df['degree_centrality'])
-        val_min = min(df['degree_centrality'])
-        df[['normalized_centrality']] = df[['degree_centrality']].apply(lambda x: (x - val_min) / (val_max - val_min), result_type = 'expand')
-        df[['round_centrality_in_network']] = df[['degree_centrality']].apply(lambda x: round(x, 2))
+        val_max = max(df['network_centrality'])
+        val_min = min(df['network_centrality'])
+        df[['network_centrality_normalized']] = df[['network_centrality']].apply(lambda x: (x - val_min) / (val_max - val_min), result_type = 'expand')
+        df[['network_centrality_rounded']] = df[['network_centrality']].apply(lambda x: round(x, 4))
 
         return df
 
-"""    def getStatsCommunities(self):
+    def getStatsCommunities(self):
         G = nx.Graph()
         G.add_edges_from(self.getEdges(type = 'networkx'))
         communities = greedy_modularity_communities(G)
-
-        for community in communities:
-            
-        degree_centrality_nodes = networkx.algorithms.centrality.degree_centrality(G)
-        eccentricity_nodes = networkx.algorithms.distance_measures.eccentricity(G)
         dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
 
-        df = pd.DataFrame({'degree_centrality':pd.Series(degree_centrality_nodes), 'eccentricity':pd.Series(eccentricity_nodes), 'community':pd.Series(dict_communities)}) 
-
-        val_max = max(df['degree_centrality'])
-        val_min = min(df['degree_centrality'])
-        df[['normalized_centrality']] = df[['degree_centrality']].apply(lambda x: (x - val_min) / (val_max - val_min), result_type = 'expand')
-        df[['round_centrality_in_network']] = df[['degree_centrality']].apply(lambda x: round(x, 2))
-
-        return df"""
+        community_centrality_nodes = {}
+        for community in communities:
+            selected_edges = [(a,b) for a,b in G.edges if a in community if b in community]
+            G_community = nx.Graph()
+            G_community.add_edges_from(selected_edges)
+            community_centrality_nodes.update(networkx.algorithms.centrality.eigenvector_centrality(G_community))
+        
+        df = pd.DataFrame({'community':pd.Series(dict_communities), 'community_centrality': pd.Series(community_centrality_nodes)})
+        df[['community_centrality_rounded']] =  df[['community_centrality']].apply(lambda x: round(x, 4))
+            
+        return df 
 
 # Basic layout app 
 navbar = dbc.Card(
@@ -269,12 +253,14 @@ def createNetworkDataframe(value):
 
     lang, node_title = str(value).split(': ', 1)
     wiki_page = WikiNetwork(node_title=node_title, lang=lang)
-    stats_nodes = wiki_page.getStatsNodes()
+
     nodes = wiki_page.getNodes(type='cytoscape')
     edges = wiki_page.getEdges(type='cytoscape')
+    stats_nodes = wiki_page.getStatsNodes()
+    stats_communities = wiki_page.getStatsCommunities()
 
     pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()]).set_index('title', drop = False)
-    pd_nodes = pd.concat([pd_nodes, stats_nodes], axis = 1)
+    pd_nodes = pd.concat([pd_nodes, stats_nodes, stats_communities], axis = 1)
 
     return {'node_title': node_title, 'lang': lang, 'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
 
@@ -285,17 +271,16 @@ def displayGraph(data):
     edges = data['edges_network']
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats']) 
     stats_nodes = stats_nodes.set_index('title', drop = False)
-    # community_numbers = stats_nodes.loc['community'].apply(lambda x: str(x))
 
     # dynamic styling for network graph.
     list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.index]
     list_styles = []
     for node in stats_nodes.index:
         list_styles.append({'background-color': 'blue', # list_colours[community_numbers[[node]]], #  'blue', # list_colours[stats_nodes.loc[node]['community']],  # this is BUG 
-                            'background-opacity': stats_nodes.loc[node]['normalized_centrality'] + .2, 
+                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'] + .2, 
                             'shape': 'ellipse',
-                            'width':  (stats_nodes.loc[node]['normalized_centrality']* 5) + 1, 
-                            'height': (stats_nodes.loc[node]['normalized_centrality']* 5) + 1,
+                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 5) + 1, 
+                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 5) + 1,
                             })
     pd_stylesheet = pd.DataFrame({'selector': list_selectors, 'style': list_styles } )
 
@@ -334,7 +319,6 @@ def render_content_tabs(data):
             {'nodes':len(stats_nodes.index), # 
             'edges':len(data['edges_network']), # 
             'communities': len(stats_nodes['community'].unique()), #  
-            'center': 'TODO', 
             'clustering': 'TODO', 
             'dominating set': 'TODO'} 
         ]
@@ -403,8 +387,8 @@ def displayCommunityTabContent(active_tab, data):
 
     return dbc.Card([
             dash_table.DataTable(
-                columns=[{"name": 'Title', "id": 'title'}, {"name": 'Centrality', "id": 'degree_centrality'} ], 
-                data = stats_nodes.sort_values(by=['degree_centrality'], ascending=False).to_dict('records'),
+                columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Community centrality', "id": 'community_centrality_rounded'}], 
+                data = stats_nodes.sort_values(by=['community_centrality'], ascending=False).to_dict('records'),
                 style_table={'height': '200px', 'overflowY': 'auto'}) 
             ], color= list_bootstrap_colours[active_tab - 1], outline=True
         )
@@ -419,7 +403,7 @@ def displayTapNodeData(data, tapNodeData):
     return dbc.Card([
                 dbc.CardHeader(
                         dash_table.DataTable(
-                            columns=[{"name": 'Selected node', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Centrality', "id": 'degree_centrality'}, {"name": 'Community', "id": 'community'} ], 
+                            columns=[{"name": 'Selected node', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Network Centrality', "id": 'network_centrality_rounded'}, {"name": 'Community', "id": 'community'} ], 
                             data = stats_nodes.to_dict('records'),
                             style_table={'height': '75px', 'overflowY': 'auto'},
                             style_cell={'textAlign': 'left'}),
