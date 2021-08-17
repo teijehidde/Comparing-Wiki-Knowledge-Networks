@@ -259,8 +259,9 @@ def createNetworkDataframe(value):
     stats_nodes = wiki_page.getStatsNodes()
     stats_communities = wiki_page.getStatsCommunities()
 
-    pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()]).set_index('title', drop = False)
-    pd_nodes = pd.concat([pd_nodes, stats_nodes, stats_communities], axis = 1)
+    # pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()]).set_index('title', drop = False)
+    pd_nodes = pd.concat([stats_nodes, stats_communities], axis = 1).reset_index() # pd_nodes,
+    pd_nodes = pd_nodes.rename(columns={'index': 'title'})
 
     return {'node_title': node_title, 'lang': lang, 'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
 
@@ -276,11 +277,11 @@ def displayGraph(data):
     list_selectors = ['[label = "{}"]'.format(i) for i in stats_nodes.index]
     list_styles = []
     for node in stats_nodes.index:
-        list_styles.append({'background-color': 'blue', # list_colours[community_numbers[[node]]], #  'blue', # list_colours[stats_nodes.loc[node]['community']],  # this is BUG 
-                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'] + .2, 
+        list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']],  # this is BUG 
+                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'], 
                             'shape': 'ellipse',
-                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 5) + 1, 
-                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 5) + 1,
+                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 3), 
+                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 3),
                             })
     pd_stylesheet = pd.DataFrame({'selector': list_selectors, 'style': list_styles } )
 
@@ -355,9 +356,7 @@ def render_content_tabs(data):
                                             dbc.Tabs(
                                                 id='community-tabs-list',
                                                 card = True, 
-                                                active_tab = 1,
-                                            )
-                                    ),
+                                                active_tab = 1)), 
                                     dbc.CardBody(id='community-table-content')
                                 ]),
                                 dbc.Card(
@@ -371,12 +370,34 @@ def render_content_tabs(data):
     )
 
 @app.callback(Output('community-tabs-list', 'children'),
+             # Input('cytoscape-graph', 'tapNodeData'),
              Input('memory-network', 'data')) 
 def displayCommunityTabs(data):
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
     number_community = set(stats_nodes['community'].tolist())
 
-    return [dbc.Tab(label = 'Community {}'.format(n +1), tab_id = n + 1, label_style={"color": list_colours[n]} ) for n in number_community] # NB: I add 1 to n here to avoid using 0 as ID in tabs. This seems not to work. Bug in dbc? 
+    # if tapNodeData == None:
+    #     = 1
+    #else:
+    #    selected_tab = int(stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]['community']) + 1
+
+    return [dbc.Tab(label = 'Community {}'.format(n +1), tab_id = n + 1, label_style={"color": list_colours[n]} ) for n in number_community ] 
+              
+
+"""@app.callback(Output('selected-tab', 'children'),
+             Input('cytoscape-graph', 'tapNodeData'),
+             Input('memory-network', 'data')) 
+def selectCommunityTabs(tapNodeData, data):
+    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
+
+    if tapNodeData == None:
+        selected_tab = 1
+    else:
+        selected_tab = int(stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]['community']) + 1
+
+    return dbc.Tabs( id='community-tabs-list',
+              card = True, 
+              active_tab = selected_tab)"""
 
 @app.callback(Output('community-table-content', 'children'),
               Input('community-tabs-list', 'active_tab'),
