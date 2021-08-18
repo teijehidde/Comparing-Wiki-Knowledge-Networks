@@ -6,6 +6,7 @@ import numpy as np
 import networkx as nx
 from networkx.algorithms.community import greedy_modularity_communities
 import networkx.algorithms
+from networkx.algorithms import approximation
 import base64
 import networkx.utils # (algorithms to check out: "approximation", "eccentricity", "diameter", "radius", "periphery", "center", "barycenter", "Community" "degree_centrality", "constraint", "local_constraint", "effective_size") 
 
@@ -62,7 +63,7 @@ class WikiNode:
 
 class WikiNetwork(WikiNode):
    
-    def __init__(self, node_title, lang, threshold = 3):
+    def __init__(self, node_title, lang, threshold = 10):
         
         WikiNode.__init__(self, node_title, lang, network_data = network_data_df)
         self.threshold = threshold
@@ -120,8 +121,7 @@ class WikiNetwork(WikiNode):
         G = nx.Graph()
         G.add_edges_from(self.getEdges(type = 'networkx'))
         centrality_nodes = networkx.algorithms.centrality.eigenvector_centrality(G)
-        # eccentricity_nodes = networkx.algorithms.distance_measures.eccentricity(G) # depricated. 
-        df = pd.DataFrame({'network_centrality':pd.Series(centrality_nodes)}) #  'eccentricity':pd.Series(eccentricity_nodes) # depricated. 
+        df = pd.DataFrame({'network_centrality':pd.Series(centrality_nodes)})
 
         val_max = max(df['network_centrality'])
         val_min = min(df['network_centrality'])
@@ -147,6 +147,11 @@ class WikiNetwork(WikiNode):
         df[['community_centrality_rounded']] =  df[['community_centrality']].apply(lambda x: round(x, 4))
             
         return df 
+
+    def getStatsNetwork(self):
+        G = nx.Graph()
+        G.add_edges_from(self.getEdges(type = 'networkx'))
+        return approximation.average_clustering(G, trials=1000, seed=10)
 
 # Basic layout app 
 navbar = dbc.Card(
@@ -282,7 +287,7 @@ def createNetworkDataframe(value):
     pd_nodes = pd.concat([nodes_translations, stats_nodes, stats_communities], axis = 1).reset_index() # pd_nodes,
     pd_nodes = pd_nodes.rename(columns={'index': 'title'})
 
-    return {'node_title': node_title, 'lang': lang, 'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
+    return {'node_title': node_title, 'lang': lang, 'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records'), 'network_stats': wiki_page.getStatsNetwork()} 
 
 @app.callback(Output('network-graph', 'children'),
               Input('memory-network', 'data')) 
@@ -341,8 +346,7 @@ def render_content_tabs(data):
             {'nodes':len(stats_nodes.index), # 
             'edges':len(data['edges_network']), # 
             'communities': len(stats_nodes['community'].unique()), #  
-            'clustering': 'TODO', 
-            'dominating set': 'TODO'} 
+            'clustering': data['network_stats']}
         ]
 
         return (
