@@ -39,6 +39,7 @@ list_colours = ['blue', 'green','red', 'gray', 'maroon', 'yellow',  'black']
 list_bootstrap_colours = ['primary',  'success','danger', 'secondary', 'info', 'warning', 'dark']
 image_filename = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/assets/banner.png' 
 encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+cyto.load_extra_layouts()
 
 # loading data. 
 network_data_df = pd.read_json((path + data_file), orient='split')
@@ -54,10 +55,14 @@ class WikiNode:
         self.node_ID = node_data[['uniqueid']].iloc[0,0]
         self.node_links = node_data[['links']].iloc[0,0]
         self.node_lang = node_data[['lang']].iloc[0,0]
+        try: 
+            self.node_translation = node_data['langlinks'].values.tolist()[0][0]['*']
+        except: 
+            self.node_translation = '.'
 
 class WikiNetwork(WikiNode):
    
-    def __init__(self, node_title, lang, threshold = 0):
+    def __init__(self, node_title, lang, threshold = 3):
         
         WikiNode.__init__(self, node_title, lang, network_data = network_data_df)
         self.threshold = threshold
@@ -74,7 +79,7 @@ class WikiNetwork(WikiNode):
                 purged_edges = []
                 for purged_link in purged_links:
                     purged_edges.append((link,purged_link))  
-                self.network_nodes[Node2.node_ID] = Node2
+                self.network_nodes[Node2.node_title] = Node2
                 self.network_links = self.network_links + purged_links
                 self.network_edges = self.network_edges + purged_edges
             except: 
@@ -97,6 +102,19 @@ class WikiNetwork(WikiNode):
             return edges_network
         if type == 'cytoscape':
             return [{'data': {'source': a, "target": b}} for a,b in edges_network]
+
+    def getTranslations(self): 
+        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= self.threshold]
+        translation_list = [(self.network_nodes[i].node_title, self.network_nodes[i].node_translation) for i in self.network_nodes if self.network_nodes[i].node_title in selected_nodes]
+        
+        translation_nodes = {} 
+        for node in selected_nodes:
+            try: 
+                translation_nodes[node] = [t[1] for t in translation_list if t[0] == node][0]
+            except: 
+                translation_nodes[node] = '...'
+
+        return pd.DataFrame({'translation':pd.Series(translation_nodes)})
 
     def getStatsNodes(self):
         G = nx.Graph()
@@ -256,11 +274,12 @@ def createNetworkDataframe(value):
 
     nodes = wiki_page.getNodes(type='cytoscape')
     edges = wiki_page.getEdges(type='cytoscape')
+    nodes_translations = wiki_page.getTranslations()
     stats_nodes = wiki_page.getStatsNodes()
     stats_communities = wiki_page.getStatsCommunities()
 
     # pd_nodes = pd.DataFrame([{'page_ID': v.node_ID, 'title': v.node_title} for v in wiki_page.network_nodes.values()]).set_index('title', drop = False)
-    pd_nodes = pd.concat([stats_nodes, stats_communities], axis = 1).reset_index() # pd_nodes,
+    pd_nodes = pd.concat([nodes_translations, stats_nodes, stats_communities], axis = 1).reset_index() # pd_nodes,
     pd_nodes = pd_nodes.rename(columns={'index': 'title'})
 
     return {'node_title': node_title, 'lang': lang, 'nodes_network': nodes, 'edges_network': edges, 'nodes_stats': pd_nodes.to_dict('records')} 
@@ -278,17 +297,17 @@ def displayGraph(data):
     list_styles = []
     for node in stats_nodes.index:
         list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']],  # this is BUG 
-                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'], 
+                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'] + .1, 
                             'shape': 'ellipse',
-                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 3), 
-                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 3),
+                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 2 + .5), 
+                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 2 + .5),
                             })
     pd_stylesheet = pd.DataFrame({'selector': list_selectors, 'style': list_styles } )
 
     return cyto.Cytoscape(
                     id='cytoscape-graph',
                     layout={'name': 'cose',
-                    'animate': True,
+                    'animate': False,
                     'randomize': True, 
                     'gravity': 1
                 }, 
@@ -299,7 +318,9 @@ def displayGraph(data):
                         {'selector': 'edge',
                             'style': {
                                 'curve-style': 'haystack', # bezier
-                                'width': .03
+                                'width': .03,
+                                'opacity': .5
+
                         }}, 
                         {'selector': 'node',
                             'style': {
@@ -376,29 +397,8 @@ def displayCommunityTabs(data):
     stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
     number_community = set(stats_nodes['community'].tolist())
 
-    # if tapNodeData == None:
-    #     = 1
-    #else:
-    #    selected_tab = int(stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]['community']) + 1
-
-    return [dbc.Tab(label = 'Community {}'.format(n +1), tab_id = n + 1, label_style={"color": list_colours[n]} ) for n in number_community ] 
+    return [dbc.Tab(label = 'Community {}'.format(n), tab_id = n + 1, label_style={"color": list_colours[n]} ) for n in number_community ] 
               
-
-"""@app.callback(Output('selected-tab', 'children'),
-             Input('cytoscape-graph', 'tapNodeData'),
-             Input('memory-network', 'data')) 
-def selectCommunityTabs(tapNodeData, data):
-    stats_nodes = pd.DataFrame.from_dict(data['nodes_stats'])
-
-    if tapNodeData == None:
-        selected_tab = 1
-    else:
-        selected_tab = int(stats_nodes.loc[stats_nodes['title'] == str(tapNodeData['id'])]['community']) + 1
-
-    return dbc.Tabs( id='community-tabs-list',
-              card = True, 
-              active_tab = selected_tab)"""
-
 @app.callback(Output('community-table-content', 'children'),
               Input('community-tabs-list', 'active_tab'),
               Input('memory-network', 'data')) 
@@ -410,7 +410,7 @@ def displayCommunityTabContent(active_tab, data):
             dash_table.DataTable(
                 columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Community centrality', "id": 'community_centrality_rounded'}], 
                 data = stats_nodes.sort_values(by=['community_centrality'], ascending=False).to_dict('records'),
-                style_table={'height': '200px', 'overflowY': 'auto'}) 
+                style_table={'height': '200px', 'overflowY': 'auto'},  style_cell={'textAlign': 'left'}) 
             ], color= list_bootstrap_colours[active_tab - 1], outline=True
         )
 
