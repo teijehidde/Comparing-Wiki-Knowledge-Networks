@@ -40,5 +40,5 @@ The app is under active development.
 ----------
 
 <table><tr><td>
-<img src="screenshot.png" width="300" style="border 5px solid black">
+<img src="Code/CSS/workflow.jpeg" width="300" style="border 5px solid black">
 </td></tr></table>
