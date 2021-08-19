@@ -1,4 +1,9 @@
-# Setup packages 
+"""
+DESCRIPTION (from readme file) HERE. 
+
+"""
+
+# Load packages 
 from collections import Counter
 from dash_bootstrap_components._components.Row import Row
 import pandas as pd
@@ -10,8 +15,7 @@ from networkx.algorithms import approximation
 import base64
 import networkx.utils # (algorithms to check out: "approximation", "eccentricity", "diameter", "radius", "periphery", "center", "barycenter", "Community" "degree_centrality", "constraint", "local_constraint", "effective_size") 
 
-# Dash packages needed for building dash app 
-
+# Load Dash packages needed for building dash app 
 import dash
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
@@ -21,10 +25,10 @@ import dash_table
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
-# setup layout and paths
+# Config working path and layout
 path = "/home/teijehidde/Documents/Git Blog and Coding/"
 data_file = "data_dump/data_new6.json" 
-external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. Should appear in credits! 
+external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. Should appear in credits! 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
     'pre': {
@@ -42,11 +46,12 @@ image_filename = path + 'Comparing Wikipedia Knowledge Networks (Network Analysi
 encoded_image = base64.b64encode(open(image_filename, 'rb').read())
 cyto.load_extra_layouts()
 
-# loading data. 
+#-------- loading data   --------#
 network_data_df = pd.read_json((path + data_file), orient='split')
 all_networks = network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en']['title'].values.tolist()
 
-# setting up classes WikiNode and WikiNetwork. 
+#-------- setting up classes WikiNode and WikiNetwork --------#
+## WHAT IS WIKI NODE/NETWORK (1-2 sentence)
 class WikiNode:
     def __init__(self, node_title, lang, network_data):
 
@@ -71,6 +76,10 @@ class WikiNetwork(WikiNode):
         self.network_links = [node_title]
         self.network_edges = [] 
         self.network_status = []
+
+        #Initiate the graph  - taken out doesnt work yet
+        #self.G = nx.Graph()
+        #self.G.add_edges_from(self.getEdges(type = 'networkx'))
         
         # Go through node_links of the central node (node_title) to build network.
         for link in self.node_links + [self.node_title]:
@@ -153,7 +162,7 @@ class WikiNetwork(WikiNode):
         G.add_edges_from(self.getEdges(type = 'networkx'))
         return approximation.average_clustering(G, trials=1000, seed=10)
 
-# Basic layout app 
+#-------- APP Layout--------#
 navbar = dbc.Card(
 # html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()))), 
     dbc.CardBody(
@@ -302,19 +311,32 @@ def displayGraph(data):
     list_styles = []
     for node in stats_nodes.index:
         list_styles.append({'background-color': list_colours[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colours[stats_nodes.loc[node]['community']],  # this is BUG 
-                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'] + .1, 
+                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'] + .15, 
                             'shape': 'ellipse',
-                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 2 + .5), 
-                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 2 + .5),
+                            'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 4 + .5), 
+                            'height': (stats_nodes.loc[node]['network_centrality_normalized']* 4 + .5),
                             })
     pd_stylesheet = pd.DataFrame({'selector': list_selectors, 'style': list_styles } )
 
     return cyto.Cytoscape(
                     id='cytoscape-graph',
                     layout={'name': 'cose',
-                    'animate': False,
-                    'randomize': True, 
-                    'gravity': 1
+                    'idealEdgeLength': 100,
+                    'nodeOverlap': 20,
+                    'refresh': 20,
+                    'fit': True,
+                    'padding': 30,
+                    'randomize': True,
+                    'componentSpacing': 100,
+                    'nodeRepulsion': 400000,
+                    'edgeElasticity': 100,
+                    'nestingFactor': 5,
+                    'gravity': 80,
+                    'numIter': 700,
+                    'initialTemp': 200,
+                    'coolingFactor': 0.98,
+                    'minTemp': 1.0,
+                    'animate': False
                 }, 
                 style={'width': '100%', 'height': '900px'},
                 elements=nodes+edges,
@@ -323,8 +345,8 @@ def displayGraph(data):
                         {'selector': 'edge',
                             'style': {
                                 'curve-style': 'haystack', # bezier
-                                'width': .03,
-                                'opacity': .5
+                                'width': .1,
+                                'opacity': .6
 
                         }}, 
                         {'selector': 'node',
@@ -412,9 +434,10 @@ def displayCommunityTabContent(active_tab, data):
 
     return dbc.Card([
             dash_table.DataTable(
-                columns=[{"name": 'Title', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Community centrality', "id": 'community_centrality_rounded'}], 
+                columns=[{"name": 'Title', "id": 'title'}, {"name": 'English Translation', "id": 'translation'}, {"name": 'Community centrality', "id": 'community_centrality_rounded'}], 
                 data = stats_nodes.sort_values(by=['community_centrality'], ascending=False).to_dict('records'),
-                style_table={'height': '200px', 'overflowY': 'auto'},  style_cell={'textAlign': 'left'}) 
+                style_table={'height': '200px', 'overflowY': 'auto'},  
+                style_cell={'textAlign': 'left', 'whiteSpace': 'normal'}) 
             ], color= list_bootstrap_colours[active_tab - 1], outline=True
         )
 
@@ -428,10 +451,10 @@ def displayTapNodeData(data, tapNodeData):
     return dbc.Card([
                 dbc.CardHeader(
                         dash_table.DataTable(
-                            columns=[{"name": 'Selected node', "id": 'title'}, {"name": 'Translation', "id": 'translation'}, {"name": 'Network Centrality', "id": 'network_centrality_rounded'}, {"name": 'Community', "id": 'community'} ], 
+                            columns=[{"name": 'Selected node', "id": 'title'}, {"name": 'English Translation', "id": 'translation'}, {"name": 'Network Centrality', "id": 'network_centrality_rounded'}, {"name": 'Community', "id": 'community'} ], 
                             data = stats_nodes.to_dict('records'),
                             style_table={'height': '75px', 'overflowY': 'auto'},
-                            style_cell={'textAlign': 'left'}),
+                            style_cell={'textAlign': 'left', 'whiteSpace': 'normal'}),
                 ), 
                 dbc.CardBody(                      
                         html.Iframe(

@@ -3,18 +3,23 @@ import os
 import requests
 import time 
 import pandas as pd
+import sys
 
+# Config
 additional_download_languages = {'Arabic': 'ar', 'Chinese': 'zh', 'French': 'fr',  'Russian': 'ru', 'Spanish': 'es'}
 path = "/home/teijehidde/Documents/Git Blog and Coding/data_dump/"
 data_file = "data_new3.json"
 
-# Function A: Call API. 
+#-------- Function A: Call API. --------#
+# Download the data on central node. The central node is the selected topic. 
+# The download data are: page info, links, all the different languages available
+
 def downloadWikiNetwork(node_title, lang = "en"):
     api_endpoint = "https://" + lang + ".wikipedia.org/w/api.php" # fr.wikipedia.org; https://en.wikipedia.org
     wiki_data = []
     print("Starting download of network " + node_title + " in language " + lang + ".")
     
-    # 1: download data on the node_title wikipage.
+    # 1: download data on the node_title wikipage. First call
     S = requests.Session()
     params_node_title = {
         "action": "query",
@@ -28,6 +33,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
     response = S.get(url=api_endpoint, params=params_node_title)
     wiki_data.append(response.json())
     
+    # Subsequent calls in chunks
     while 'continue' in wiki_data[-1].keys():
         params_cont = params_node_title
         if 'plcontinue' in wiki_data[-1]['continue']:
@@ -42,6 +48,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
         wiki_data.append(response.json())
 
     # 2: download data on the links of node_title wikipage.
+    # Generator to get data of pages linked to selected node. The link to the english version of the page is downloaded as well
     S = requests.Session()
     params_network_title = {
         "action": "query",
@@ -208,6 +215,8 @@ def downloadNetworks():
 
 # NB: RUNTIME 
 if __name__ == '__main__':
-    SelectMenu()
-
+    input_var = input("Please type a topic to download: ")
+    print ("you entered " + input_var) 
+    downloadMultiLangWikiNetwork(input_var)
+    ## write a small func to check if a str has char like "" ' / | 
 # END 
