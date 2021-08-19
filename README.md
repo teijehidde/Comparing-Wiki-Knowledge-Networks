@@ -17,28 +17,27 @@ The app uses __Dash__ for visualization of network graph and statistics. The gra
 - https://dash.plotly.com/
 - https://dash.plotly.com/cytoscape
 
-The app is under active development. 
-
-## Requested features for app.
--------
-1. Optimize visualization of graph and statistics. The app is still (very) slow, optimization is highest priority. 
-2. Compare Network graphs of one page in two (or more) language side by side, also using isomorphism measures.
-
-## Dependencies
--------
-
-
-## Install
--------
-
-```
-
-
-```
-
-## Screenshot
+The app is under active development.
 ----------
 
+## Requested features for app.
+1. Optimize visualization of graph and statistics. The app is still (very) slow, optimization is highest priority. 
+2. Compare Network graphs of one page in two (or more) language side by side, also using isomorphism measures.
+----------
+
+## Dependencies
+
+----------
+## Install
+```
+
+
+```
+----------
+## Screenshot
+
+
 <table><tr><td>
-<img src="./Code/CSS/workflow.jpeg" width="300" style="border 5px solid black">
+<img src="/home/teijehidde/Documents/Git Blog and Coding/Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/workflow.jpeg">
 </td></tr></table>
+----------
