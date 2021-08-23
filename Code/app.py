@@ -5,9 +5,7 @@ DESCRIPTION (from readme file) HERE.
 
 # Load packages 
 from collections import Counter
-from dash_bootstrap_components._components.Row import Row
 import pandas as pd
-import numpy as np
 import networkx as nx
 from networkx.algorithms.community import greedy_modularity_communities
 import networkx.algorithms
@@ -27,7 +25,7 @@ from dash.exceptions import PreventUpdate
 
 # Config working path and layout
 path = "/home/teijehidde/Documents/Git Blog and Coding/"
-data_file = "data_dump/data_new6.json" 
+data_file = "data/network_data.json" 
 external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. Should appear in credits! 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 styles = {
@@ -36,14 +34,28 @@ styles = {
         'overflowX': 'scroll'
     }
 }
+tab_style = {
+    'height': '40px',
+    #'borderBottom': '2px solid #4A405E',
+    'backgroundColor': '#FFFFFF95',
+    'padding': '6px'
+    # 'fontWeight': 'bold'
+}
+
+tab_selected_style = {
+    'height': '40px',
+    'borderTop': '1px solid #007eff',
+    'backgroundColor': '#ebf5ff95',
+    'color': '#007eff',
+    'padding': '6px'
+}
 colors = {
-    'background': 'white', # use color coding later. 
+    'background': 'white', 
     'text': 'gray'
 }
 list_colours = ['blue', 'green','red', 'gray', 'maroon', 'yellow',  'black']
 list_bootstrap_colours = ['primary',  'success','danger', 'secondary', 'info', 'warning', 'dark']
-image_filename = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/assets/banner.png' 
-encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+menu_background_colour = '#FFFFFF95'
 cyto.load_extra_layouts()
 
 #-------- loading data   --------#
@@ -68,7 +80,7 @@ class WikiNode:
 
 class WikiNetwork(WikiNode):
    
-    def __init__(self, node_title, lang, threshold = 10):
+    def __init__(self, node_title, lang, threshold = 1):
         
         WikiNode.__init__(self, node_title, lang, network_data = network_data_df)
         self.threshold = threshold
@@ -76,10 +88,6 @@ class WikiNetwork(WikiNode):
         self.network_links = [node_title]
         self.network_edges = [] 
         self.network_status = []
-
-        #Initiate the graph  - taken out doesnt work yet
-        #self.G = nx.Graph()
-        #self.G.add_edges_from(self.getEdges(type = 'networkx'))
         
         # Go through node_links of the central node (node_title) to build network.
         for link in self.node_links + [self.node_title]:
@@ -95,6 +103,10 @@ class WikiNetwork(WikiNode):
             except: 
                 pass
         self.links_count = Counter(self.network_links)
+
+        self.G = nx.Graph()
+        selected_nodes = [k for k,v in self.links_count.items() if float(v) >= self.threshold]
+        self.G.add_edges_from([(a,b) for a,b in self.network_edges if a in selected_nodes and b in selected_nodes])
 
     def getNodes(self, type="cytoscape"):
         selected_nodes = [k for k,v in self.links_count.items() if float(v) >= self.threshold]
@@ -127,9 +139,7 @@ class WikiNetwork(WikiNode):
         return pd.DataFrame({'translation':pd.Series(translation_nodes)})
 
     def getStatsNodes(self):
-        G = nx.Graph()
-        G.add_edges_from(self.getEdges(type = 'networkx'))
-        centrality_nodes = networkx.algorithms.centrality.eigenvector_centrality(G)
+        centrality_nodes = networkx.algorithms.centrality.eigenvector_centrality(self.G)
         df = pd.DataFrame({'network_centrality':pd.Series(centrality_nodes)})
 
         val_max = max(df['network_centrality'])
@@ -140,14 +150,12 @@ class WikiNetwork(WikiNode):
         return df
 
     def getStatsCommunities(self):
-        G = nx.Graph()
-        G.add_edges_from(self.getEdges(type = 'networkx'))
-        communities = greedy_modularity_communities(G)
+        communities = greedy_modularity_communities(self.G)
         dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
 
         community_centrality_nodes = {}
         for community in communities:
-            selected_edges = [(a,b) for a,b in G.edges if a in community if b in community]
+            selected_edges = [(a,b) for a,b in self.G.edges if a in community if b in community]
             G_community = nx.Graph()
             G_community.add_edges_from(selected_edges)
             community_centrality_nodes.update(networkx.algorithms.centrality.eigenvector_centrality(G_community))
@@ -155,35 +163,42 @@ class WikiNetwork(WikiNode):
         df = pd.DataFrame({'community':pd.Series(dict_communities), 'community_centrality': pd.Series(community_centrality_nodes)})
         df[['community_centrality_rounded']] =  df[['community_centrality']].apply(lambda x: round(x, 4))
             
-        return df 
+        return df
 
     def getStatsNetwork(self):
-        G = nx.Graph()
-        G.add_edges_from(self.getEdges(type = 'networkx'))
-        return approximation.average_clustering(G, trials=1000, seed=10)
+        return approximation.average_clustering(self.G, trials=1000, seed=10)
 
 #-------- APP Layout--------#
+title =  html.Div(
+                className="app-header",
+                children=[
+                    html.Header('Comparing Wiki Knowledge Networks', 
+                            style = {"text-align": "center", 'color': 'black', 'font-size': 'xx-large', 'padding': '50px 0px 50px 0px'}) # top, right, bottom, left
+                ], 
+            )
+
 navbar = dbc.Card(
-# html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()))), 
     dbc.CardBody(
             dbc.Row(
                 [
                     dbc.Col(html.Div([dcc.Dropdown(
                         id='selected-network',
                         options= [{'label': k, 'value': k} for k in all_networks],
-                        placeholder='Step 1: Select a topic'
+                        placeholder='Step 1: Select a topic',
+                        style = {'color': 'black'}, 
                         ),
                         ]), width = 3
-                    ),
+                    ), 
                     dbc.Col(html.Div([dcc.Dropdown(
                         id='language-options',
                         multi=True, 
-                        placeholder='Step 2: Select languages'
+                        placeholder='Step 2: Select multiple languages'
                         ),
-                        ]), width= 6
-                    ),
+                        ]), width= 6,
+                    ), 
                 ], justify="center", 
-        )), body = True
+        )), body = True,
+            color = menu_background_colour
     )
 
 tabs = html.Div(
@@ -195,28 +210,25 @@ tabs = html.Div(
                             dbc.CardBody( 
                                 [
                                 html.Div(id='memory-tabs'),
-                            ] )), 
+                            ] ), color = '#FFFFFF00' 
+                        ),  
                     ]
-            )
-        )  
+            ), color = '#FFFFFF00'
+        ), 
 )
 
 overview = html.Div(
     [dbc.Card([
-                dbc.CardHeader(html.H4("Introduction", style = {"align": "center"})),
+                # dbc.CardHeader(html.H4("Introduction", style = {"align": "center"}), style = {'background-color': menu_background_colour} ),
+                # dbc.CardBody([
                     dbc.Row([
                         dbc.Card([
                             dbc.CardBody(
                                 [
                                     html.H6("What does this app do?", className="card-subtitle"),
                                         dcc.Markdown('''
-                                                    This app shows a network of pagelinks from a _single_ wikipedia page across _multiple_ languages. 
-                                                    The app makes it possible to easily compare pagelinks networks for the same topic between languages.  
-
-                                                    Variations between these networks reflect different ways in which topics such as _secularism_, _religion_, _terrorism_ are linked to other topics on wikipedia.
-                                                    These differences are not due to language: the app only considers pagelinks, not text.
-                                                    Instead, they reflect the development of wikipedia, and popular understandings of these concepts, in each language. 
-
+                                                    CWKN is an application that can be used to compare networks of Wikipedia pagelinks about _one_ topic across _multiple_ languages. 
+                                                    Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. 
                                                     '''),
                                     html.H6("How does it work?", className="card-subtitle"),
                                         dcc.Markdown('''
@@ -232,37 +244,52 @@ overview = html.Div(
                                                     [Please consider donating to Wikimedia.](https://donate.wikimedia.org/wiki/Ways_to_Give)
                                                     '''),
                                 ], 
-                            )], style={"width": "40%", "padding-left":"1%", "padding-right":"2%"}, 
+                            )], 
+                              color = menu_background_colour,  
+                              style={"width": "40%", "padding-left":"1%", "padding-right":"2%"}, 
                             ), 
                         dbc.Card([
                             dbc.CardBody(
                                 [
                                     html.Iframe(
                                         width="100%", 
-                                        height="500", 
-                                        src=f'https://www.youtube.com/embed/_jWbqhP5eJI'
+                                        height="300", 
+                                        # src=f'https://www.youtube.com/embed/_jWbqhP5eJI'
                                     )
                                 ]
-                            )], style={"width": "60%", "padding-left":"1%", "padding-right":"2%"},
-                            ),
-                    ]),
-                dbc.CardFooter('This app has been build using Dash.') # 
-                ], 
-            ),
+                            )], 
+                              color = menu_background_colour, 
+                              style={"width": "60%", "padding-left":"1%", "padding-right":"2%"},
+                            ),  
+                    #]),  
+                ]),   
+                dbc.CardFooter('This app has been build using Dash.', style = {'background-color': menu_background_colour}) # 
+                ], color = '#FFFFFF00'
+            )
         ])
 
-app.layout = html.Div([
-    dcc.Store(id='memory-network'),
-    navbar,
-    tabs,
-    overview
-])
+app.layout = html.Div(
+    style={'background-image': 'url("/assets/background2.png")',
+            'background-repeat': 'no-repeat',
+            'background-position': 'left top',
+            'background-size': '967px 716px', 
+            'background-color': 'white'}, 
+    children = [ 
+        dcc.Store(id='memory-network'),
+        title, 
+        navbar,
+        tabs,
+        overview
+    ])
 
 # Callbacks for functioning app. 
 @app.callback(
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
 def set_network_options(selected_network):
+    # if selected_network is None:
+    #    raise PreventUpdate
+
     page_langs = pd.DataFrame(network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en'].loc[network_data_df['title'] == selected_network]['langlinks'].iloc[0]).rename(columns={'*': 'title'})
     saved_langs = network_data_df.loc[network_data_df['ego'] == True][['lang', 'title']]
     
@@ -274,7 +301,10 @@ def set_network_options(selected_network):
 @app.callback(Output('tabs-list', 'children'),
               Input('language-options', 'value'))
 def render_tabs(value):
-    return [dcc.Tab(label = i, value = i) for i in value] 
+    if value is None:
+        raise PreventUpdate
+
+    return [dcc.Tab(label = i, value = i, style=tab_style, selected_style=tab_selected_style) for i in value] 
 
 @app.callback(Output('memory-network', 'data'),
               Input('tabs-list', 'value'),
@@ -318,7 +348,7 @@ def displayGraph(data):
                             })
     pd_stylesheet = pd.DataFrame({'selector': list_selectors, 'style': list_styles } )
 
-    return cyto.Cytoscape(
+    return cyto.Cytoscape( # #4A405E
                     id='cytoscape-graph',
                     layout={'name': 'cose',
                     'idealEdgeLength': 100,
@@ -338,17 +368,18 @@ def displayGraph(data):
                     'minTemp': 1.0,
                     'animate': False
                 }, 
-                style={'width': '100%', 'height': '900px'},
+                style={'width': '100%', 'height': '900px', 'background-color': '#FFFFFF'},
                 elements=nodes+edges,
                 stylesheet= 
                     [
                         {'selector': 'edge',
                             'style': {
-                                'curve-style': 'haystack', # bezier
-                                'width': .1,
-                                'opacity': .6
+                                'curve-style': 'haystack', # bezier 
+                                'width': .05,
+                                'opacity': .6, 
+                                'line-color': 'grey'
 
-                        }}, 
+                        }},     
                         {'selector': 'node',
                             'style': {
                                 'width': .01, 
@@ -390,7 +421,7 @@ def render_content_tabs(data):
                                                 dash_table.DataTable(
                                                     columns=[{"name": 'Nodes', "id": 'nodes'}, {"name": 'Edges', "id": 'edges'}, {"name": 'Communities', "id": 'communities'}, {"name": 'Clustering', "id": 'clustering'}], 
                                                     data = network_table_data, 
-                                                    editable=True,
+                                                    editable=False,
                                                     row_deletable=False,
                                                     style_table={'height': '75px', 'overflowY': 'auto'}, 
                                                     style_cell={'textAlign': 'left'},                                                
@@ -405,13 +436,15 @@ def render_content_tabs(data):
                                                 card = True, 
                                                 active_tab = 1)), 
                                     dbc.CardBody(id='community-table-content')
-                                ]),
+                                ] #, color = menu_background_colour
+                                ),
                                 dbc.Card(
-                                    dbc.CardBody(id='node-table')),
+                                    dbc.CardBody(id='node-table'), 
+                                 ),
                                 ]
                             ),
                             ]
-                    ), style={"width": "55%"},
+                    ), style={"width": "55%"}, # 55
                     )
         ])
     )
