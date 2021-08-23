@@ -97,7 +97,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
                 network_data_df.at[node,'pageid'] = item['query']['pages'][node]['pageid']
                 network_data_df.at[node,'uniqueid'] = network_data_df.at[node,'lang'] + str(network_data_df.at[node,'pageid'])
                 network_data_df.at[node,'lastrevid'] = item['query']['pages'][node]['lastrevid']
-                if network_data_df.at[node,'title'] == node_title: network_data_df.at[node,'ego'] = True
+                if network_data_df.at[node,'title'] == node_title.replace('_', ' '): network_data_df.at[node,'ego'] = True
 
                 if 'links' in item['query']['pages'][node].keys():
                     for link in item['query']['pages'][node]['links']:

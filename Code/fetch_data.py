@@ -1,15 +1,15 @@
 # Setup packages and file paths 
-import requests
 import time 
 import pandas as pd
 import init_wiki_api as iwa
 
 # Config
+languages = ["ar", "ja", "es", "zh", "fr", "ru"]
 path = "/home/teijehidde/Documents/Git Blog and Coding/data/"
 data_file = "network_data.json"
 
-# Function B: Downloading multiple languages of one topic and saving them to json/panda file. 
-def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = ["ar", "ja", "es", "zh", "fr", "ru"]): # or: 'available_langs'
+# Downloading multiple languages of one topic and saving them to json/panda file.
+def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = languages): # or: 'available_langs'
     network_data_df = iwa.downloadWikiNetwork(node_title=node_title, lang=original_lang)
     available_langs = network_data_df.loc[network_data_df['ego'] == True]['langlinks'].values.tolist()[0]
 
@@ -33,10 +33,18 @@ def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_la
     print("Download of network and additional languages finished. Returning to main menu...") 
     time.sleep(5) 
 
-# NB: RUNTIME 
+# RUNTIME 
 if __name__ == '__main__':
-    input_var = input("Please type a topic to download: ")
-    print ("you entered " + input_var) 
-    downloadMultiLangWikiNetwork(input_var[0].upper() + input_var[1:])
-    ## write a small func to check if a str has char like "" ' / | 
+    while True: 
+        print ('This command line tool downloads pagelink data from the chosen topic in English, Arabic, Japanese, Spanish, Chinese, French and Russian - if available.')
+        input_var = input("Please type a topic to download (or Q to quit): ")
+        print ("You entered " + input_var)
+        if input_var.lower() != 'q':
+            try: 
+                downloadMultiLangWikiNetwork(input_var[0].upper() + input_var[1:])
+            except: 
+                print ('Soemthing went wrong. Please try again.')
+        else: 
+            break
+
 # END 
