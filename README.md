@@ -1,41 +1,43 @@
-# Comparing Networks of Knowledge
-Application that uses [prop=links] in the Wikipedia API module to compare networks of Wikipedia pages on one topic between multiple languages.
-App is under active development. WIP.
+# Comparing Wikipedia Knowledge Networks
+Application that compares networks of Wikipedia pagelinks around one topic across multiple languages. It shows different understandings of similar concepts - such as secularism, gender, terrorism - between language groups. 
 
-Regarding API, see Wikipedia API websites:
+The app consists of two parts: 
+- fetch_data.py is a simple command line app to call the wikimedia API. 
+- app.py is a Dash powered app to visualize and compare wikipedia pagelinks networks.  
+
+The app uses the __Wikimedia API__ to download wikipage info, links and langlinks. Regarding API, see the Wikimedia API websites:
 - https://www.mediawiki.org/wiki/API:Etiquette
 - https://www.mediawiki.org/wiki/API:Query#Generators
 
+The app uses __NetworkX__ to rank nodes and classify network communities. Eigenvector centrality measures are used for ranking nodes, and greedy modularity maximization to find network communities. Regarding these algorithms, see the networkX website: 
+- https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.centrality.eigenvector_centrality.html?highlight=eigenvector%20centrality 
+- https://networkx.org/documentation/stable/_modules/networkx/algorithms/community/modularity_max.html
 
-## Requested features for app.
--------
-1. Compare Network graphs of one page in two (or more) language side by side.
-2. Compare data on network structure side by side. For instance data clusters in each network.
-3. An accessible way to see and choose between available networks and languages (that are all saved in a .JSON file).  
-4. An accessible way to initiate the Wikipedia API to download new networks and to chose in what languages a network should be downloaded.
+The app uses __Dash__ for visualization of network graph and statistics. The graph visualization in dash draws on Cytoscape. For more information, please see the Dash website: 
+- https://dash.plotly.com/
+- https://dash.plotly.com/cytoscape
 
-
-## TODOs:
--------
-1. [DONE] Revise API call to act at network (not node) level, and based completely on generators. -- see website from wikipedia. Also consider implementing zipping.
-2. [DONE] API should check what language a topic is available in.
-3. [DONE] Write function to download network in specific additional language.
-4. [DONE] Restructure (again) how data is saved. a) The 'plcontinue value' should NOT be linked to node (similar to how wikimedia treats it). b) Implement timestamp c) save the Wikipedia version (english, french, arabic) that data is from.
-5. [WIP] Start playing around with comparing knowledge networks around topics _in different languages_. Cross case comparison on same topic.
-6. [ASK Neci] Start playing with Django for building interacting website to visualize descriptive analysis. On the face of it Django seems more straighforward than Flask.
-7. -- later -- incorporate 'revision' in data that is downloaded.
-
-## Install
--------
-
-```
-
-
-```
-
-## Screenshot
+The app is under active development.
 ----------
 
+## Requested features for app.
+1. Optimize visualization of graph and statistics. The app is still (very) slow, optimization is highest priority. 
+2. Compare Network graphs of one page in two (or more) language side by side, also using isomorphism measures.
+----------
+
+## Dependencies
+
+----------
+## Install
+```
+
+
+```
+----------
+## Screenshot
+
+
 <table><tr><td>
-<img src="screenshot.png" width="300" style="border 5px solid black">
+<img src="/home/teijehidde/Documents/Git Blog and Coding/Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/workflow.jpeg">
 </td></tr></table>
+----------

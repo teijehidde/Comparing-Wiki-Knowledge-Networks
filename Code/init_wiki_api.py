@@ -4,7 +4,6 @@
 import requests
 import pandas as pd
 
-
 def downloadWikiNetwork(node_title, lang = "en"):
     api_endpoint = "https://" + lang + ".wikipedia.org/w/api.php" # fr.wikipedia.org; https://en.wikipedia.org
     wiki_data = []

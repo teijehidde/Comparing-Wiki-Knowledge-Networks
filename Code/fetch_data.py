@@ -4,8 +4,6 @@ import time
 import pandas as pd
 import init_wiki_api as iwa
 
-
-
 # Config
 path = "/home/teijehidde/Documents/Git Blog and Coding/data/"
 data_file = "network_data.json"
@@ -39,6 +37,6 @@ def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_la
 if __name__ == '__main__':
     input_var = input("Please type a topic to download: ")
     print ("you entered " + input_var) 
-    downloadMultiLangWikiNetwork(input_var)
+    downloadMultiLangWikiNetwork(input_var[0].upper() + input_var[1:])
     ## write a small func to check if a str has char like "" ' / | 
 # END 
