@@ -2,8 +2,8 @@
 | Description                                                  | Visual                                                       |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | CWKN is an application that can be used to compare networks of Wikipedia page links about one topic across multiple languages. Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. |![workflow](./Code/assets/GifOverview5.gif)|
-The app consists of two parts: 
 
+The app consists of two parts: 
 - app.py is a Dash powered app to visualise and compare Wikipedia page links networks. 
 - fetch_data.py is a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
 
