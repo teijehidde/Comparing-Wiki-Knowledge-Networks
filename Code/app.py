@@ -173,7 +173,7 @@ title =  html.Div(
                 className="app-header",
                 children=[
                     html.Header('Comparing Wiki Knowledge Networks', 
-                            style = {"text-align": "center", 'color': 'black', 'font-size': 'xx-large', 'padding': '50px 0px 50px 0px'}) # top, right, bottom, left
+                            style = {"text-align": "center", 'color': '#003060', 'font-size': 'xx-large', 'padding': '50px 0px 50px 0px'}) # top, right, bottom, left
                 ], 
             )
 
@@ -246,20 +246,15 @@ overview = html.Div(
                                 ], 
                             )], 
                               color = menu_background_colour,  
-                              style={"width": "40%", "padding-left":"1%", "padding-right":"2%"}, 
+                              style={"width": "50%", "padding-left":"1%", "padding-right":"2%"}, 
                             ), 
                         dbc.Card([
                             dbc.CardBody(
-                                [
-                                    html.Iframe(
-                                        width="100%", 
-                                        height="300", 
-                                        # src=f'https://www.youtube.com/embed/_jWbqhP5eJI'
-                                    )
-                                ]
-                            )], 
+                                [html.Img(src='/assets/OverviewResized2.gif')] # , width="70%")]
+                            ), 
+                            ], 
                               color = menu_background_colour, 
-                              style={"width": "60%", "padding-left":"1%", "padding-right":"2%"},
+                              style={"width": "50%", "padding-left":"1%", "padding-right":"2%"},
                             ),  
                     #]),  
                 ]),   
@@ -269,13 +264,13 @@ overview = html.Div(
         ])
 
 app.layout = html.Div(
-    style={'background-image': 'url("/assets/background2.png")',
+    style={'background-image': 'url("/assets/background4.png")',
             'background-repeat': 'no-repeat',
             'background-position': 'left top',
-            'background-size': '967px 716px', 
+            'background-size': '627px 558px', #967px 716px = background2 
             'background-color': 'white'}, 
     children = [ 
-        dcc.Store(id='memory-network'),
+        dcc.Store(id='memory-network'), 
         title, 
         navbar,
         tabs,
@@ -287,8 +282,6 @@ app.layout = html.Div(
     Output('language-options', 'options'),
     Input('selected-network', 'value'))
 def set_network_options(selected_network):
-    # if selected_network is None:
-    #    raise PreventUpdate
 
     page_langs = pd.DataFrame(network_data_df.loc[network_data_df['ego'] == True].loc[network_data_df['lang'] == 'en'].loc[network_data_df['title'] == selected_network]['langlinks'].iloc[0]).rename(columns={'*': 'title'})
     saved_langs = network_data_df.loc[network_data_df['ego'] == True][['lang', 'title']]

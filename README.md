@@ -1,11 +1,13 @@
 # Comparing Wikipedia Knowledge Networks
-CWKN is an application that can be used to compare networks of Wikipedia pagelinks about one topic across multiple languages. Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. 
+| Description                                                  | Visual                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| CWKN is an application that can be used to compare networks of Wikipedia page links about one topic across multiple languages. Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. |![workflow](./Code/assets/GifOverview5.gif)|
 
 The app consists of two parts: 
-- app.py is a Dash powered app to visualise and compare Wikipedia pagelinks networks. 
+- app.py is a Dash powered app to visualise and compare Wikipedia page links networks. 
 - fetch_data.py is a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
 
-The app is under active development. It is also the very first app I developed in python. Needless to say, anything can break at any moment. Comments, feature suggestions or bug reports are welcome.
+The app is under active development. Comments, feature suggestions or bug reports are welcome.
 
 
 
@@ -48,12 +50,11 @@ Full list of dependencies:
 
 
 
-
 ## Workflow Dash app
 
 | Description                                 | Visual                                                       |
 | ------------------------------------------- | ------------------------------------------------------------ |
-| The workflow of the Dash app is as follows: | ![workflow](/home/teijehidde/Documents/Git Blog and Coding/Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/workflow.jpeg) |
+| The workflow of the Dash app is as follows: | ![workflow](./Code/CSS/workflow.jpeg) |
 
 
 
