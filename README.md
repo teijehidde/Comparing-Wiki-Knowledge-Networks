@@ -1,7 +1,7 @@
 # Comparing Wikipedia Knowledge Networks
 | Description                                                  | Visual                                                       |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| CWKN is an application that can be used to compare networks of Wikipedia page links about one topic across multiple languages. Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. |![workflow](/home/teijehidde/Documents/Git Blog and Coding/Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/assets/GifOverview5.gif)|
+| CWKN is an application that can be used to compare networks of Wikipedia page links about one topic across multiple languages. Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. |![workflow](./Code/assets/GifOverview5.gif)|
 The app consists of two parts: 
 
 - app.py is a Dash powered app to visualise and compare Wikipedia page links networks. 
@@ -54,7 +54,7 @@ Full list of dependencies:
 
 | Description                                 | Visual                                                       |
 | ------------------------------------------- | ------------------------------------------------------------ |
-| The workflow of the Dash app is as follows: | ![workflow](/home/teijehidde/Documents/Git Blog and Coding/Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/workflow.jpeg) |
+| The workflow of the Dash app is as follows: | ![workflow](./Code/CSS/workflow.jpeg) |
 
 
 
