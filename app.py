@@ -3,10 +3,11 @@ CWKN is an application that can be used to compare networks of Wikipedia page li
 Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups.
 
 The app consists of two parts: 
-- app.py is a Dash powered app to visualise and compare Wikipedia page links networks. 
-- fetch_data.py is a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
+- The current file is app.py: a Dash powered app to visualise and compare Wikipedia page links networks. 
+- The second part is fetch_data.py is a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
 
-The app is under active development. Comments, feature suggestions or bug reports are welcome.
+The app is under active development. 
+Please note that this is my first python script. Comments, feature suggestions or bug reports are welcome.
 """
 
 #-------- loading packages --------#
@@ -141,7 +142,7 @@ class WikiNetwork(WikiNode):
         return df
 
     def getStatsCommunities(self):
-        communities = greedy_modularity_communities(self.G)
+        communities =  greedy_modularity_communities(self.G) # tryout later: networkx.algorithms.community.centrality.girvan_newman(self.G) -- can also still take a look at cdlib package. #
         dict_communities = {key:value for value in range(len(communities)) for key in communities[value] }
 
         community_centrality_nodes = {}
@@ -385,7 +386,7 @@ def displayGraph(data):
     list_styles = []
     for node in stats_nodes.index:
         list_styles.append({'background-color': list_colors[int(stats_nodes.loc[node]['community'])], #  'blue', # list_colors[stats_nodes.loc[node]['community']],  # this is BUG 
-                            'background-opacity': stats_nodes.loc[node]['network_centrality_normalized'] + .15, 
+                            'background-opacity': .5, 
                             'shape': 'ellipse',
                             'width':  (stats_nodes.loc[node]['network_centrality_normalized']* 4 + .5), 
                             'height': (stats_nodes.loc[node]['network_centrality_normalized']* 4 + .5),
@@ -405,8 +406,8 @@ def displayGraph(data):
                         {'selector': 'edge',
                             'style': {
                                 'curve-style': 'haystack', # bezier 
-                                'width': .05,
-                                'opacity': .6, 
+                                'width': .025,
+                                'opacity': .8, 
                                 'line-color': 'grey'
 
                         }},     
@@ -467,5 +468,8 @@ def displayTapNodeData(data, tapNodeData):
         ], color= list_bootstrap_colors[int(community)], outline=True
     )
 
+#-------- Runtime --------#
 if __name__ == '__main__':
     app.run_server(debug=True)
+
+#-------- End --------#
