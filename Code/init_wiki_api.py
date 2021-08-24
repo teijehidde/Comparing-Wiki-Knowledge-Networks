@@ -1,15 +1,20 @@
-#-------- Function A: Call API. --------#
-# Download the data on central node. The central node is the selected topic. 
-# The download data are: page info, links, all the different languages available
+"""
+This is a function that calls the wikipedia API to download links and language links form selected pages. 
+See app.py and fetch_data.py for more information. 
+"""
+
+#-------- loading packages --------#
 import requests
 import pandas as pd
 
+
+#-------- function to call wikimedia API --------#
 def downloadWikiNetwork(node_title, lang = "en"):
     api_endpoint = "https://" + lang + ".wikipedia.org/w/api.php" # fr.wikipedia.org; https://en.wikipedia.org
     wiki_data = []
     print("Starting download of network " + node_title + " in language " + lang + ".")
     
-    # 1: download data on the node_title wikipage. First call
+    # step 1a: download data on the node_title wikipage. First call
     S = requests.Session()
     params_node_title = {
         "action": "query",
@@ -23,7 +28,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
     response = S.get(url=api_endpoint, params=params_node_title)
     wiki_data.append(response.json())
     
-    # Subsequent calls in chunks
+    # step 1b: Subsequent calls remaining data chunks
     while 'continue' in wiki_data[-1].keys():
         params_cont = params_node_title
         if 'plcontinue' in wiki_data[-1]['continue']:
@@ -37,7 +42,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
         response = S.get(url=api_endpoint, params=params_cont)
         wiki_data.append(response.json())
 
-    # 2: download data on the links of node_title wikipage.
+    # step 2a: download data on the links of node_title wikipage.
     # Generator to get data of pages linked to selected node. The link to the english version of the page is downloaded as well
     S = requests.Session()
     params_network_title = {
@@ -56,6 +61,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
     response = S.get(url=api_endpoint, params=params_network_title)
     wiki_data.append(response.json())
 
+    # step 2b: Subsequent calls remaining data chunks of each page. 
     while 'continue' in wiki_data[-1].keys():
         params_cont = params_network_title
         if 'plcontinue' in wiki_data[-1]['continue']:
@@ -73,7 +79,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
         response = S.get(url=api_endpoint, params = params_cont)
         wiki_data.append(response.json())
 
-    # 3: creating list of available nodes in wiki_data. 
+    # step 3: creating a list of all nodes present in downloaded data. 
     all_nodes = []
 
     for item in wiki_data:
@@ -81,12 +87,12 @@ def downloadWikiNetwork(node_title, lang = "en"):
     all_nodes = list(set(all_nodes))
     all_nodes = [int(i) for i in all_nodes if int(i) > 0]
     all_nodes = [str(i) for i in all_nodes]
-    
+
+    # step 4: Using list of all nodes to go through data, building a panda dataframe from scratch. 
     network_data_df = pd.DataFrame(
         columns = ['title', 'lang', 'pageid', 'uniqueid', 'lastrevid', 'links', 'langlinks', 'ego'], # complete list: ['ns', 'title', 'missing', 'contentmodel', 'pagelanguage', 'pagelanguagehtmlcode', 'pageid', 'lastrevid', 'length', 'links', 'langlinks']
         index = all_nodes)
 
-    # 4: Using all_nodes to go through list of raw data from API. 
     for node in all_nodes:
         network_data_df.at[node,'links'] = []
         network_data_df.at[node,'langlinks'] = []
@@ -106,5 +112,7 @@ def downloadWikiNetwork(node_title, lang = "en"):
                 if 'langlinks' in item['query']['pages'][node].keys(): 
                     network_data_df.at[node,'langlinks'] = network_data_df.at[node,'langlinks'] + item['query']['pages'][node]['langlinks']
 
-    # returns panda with all data from network. 
+    # step 5: returns panda with all data from network. 
     return network_data_df
+
+#-------- End --------#

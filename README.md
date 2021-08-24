@@ -2,12 +2,12 @@
 | Description                                                  | Visual                                                       |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | CWKN is an application that can be used to compare networks of Wikipedia page links about one topic across multiple languages. Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups. |![workflow](./Code/assets/GifOverview5.gif)|
-The app consists of two parts: 
 
+The app consists of two parts: 
 - app.py is a Dash powered app to visualise and compare Wikipedia page links networks. 
 - fetch_data.py is a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
 
-The app is under active development. Comments, feature suggestions or bug reports are welcome.
+The app is under active development. Please note that this is my first python script. Comments, feature suggestions or bug reports are welcome.
 
 
 
@@ -60,7 +60,9 @@ Full list of dependencies:
 
 ## Requested features for app.
 
-1. Optimise visualisation of graph and statistics. The app is still (very) slow, optimisation is highest priority. 
+1. Optimise visualisation of graph and statistics. Large graphs slowdown the app, optimisation is highest priority. 
+2. Stability improvements are necessary. 
 2. Improve user interaction: currently interaction between different elements in the app is one directional (selecting a node in graph, to get table with data). A node should also be selectable in a table to be highlighted in graph. 
 3. Compare Network graphs of one page in two (or more) language side by side, also using isomorphism measures.
-4. Improve installation process 
+4. Imrprove use of network algorithms and explanation sociological relevance. 
+4. Improve installation process.  
