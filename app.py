@@ -31,7 +31,7 @@ from dash.exceptions import PreventUpdate
 #-------- config --------#
 path = "/home/teijehidde/Documents/Git Blog and Coding/"
 data_file = "data/network_data.json" 
-external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/Code/CSS/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. 
+external_stylesheets = path + 'Comparing Wikipedia Knowledge Networks (Network Analysis Page links)/CSS/stylesheet.css' # downloaded from: https://codepen.io/chriddyp/pen/bWLwgP.css. 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 menu_background = '#FFFFFF99'
 tab_style = {

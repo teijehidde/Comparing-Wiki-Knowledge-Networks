@@ -1,0 +1,4 @@
+*.ipynb
+/archive
+/blog
+/__pycache__
