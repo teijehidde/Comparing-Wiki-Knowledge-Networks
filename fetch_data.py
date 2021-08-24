@@ -16,9 +16,9 @@ import pandas as pd
 import init_wiki_api as iwa
 
 #-------- config --------#
-languages = ["ar", "fr", 'ru'] # "ar", "ja", "es", "zh", "fr", "ru"
-path = "/home/teijehidde/Documents/Git Blog and Coding/data/"
-data_file = "network_data2.json"
+languages = ["ar", "ja", "zh", "fr", "ru"] 
+path = "./data/"
+data_file = "sample_data.json"
 
 #-------- function to download wikinetwork in multple languages. Call functions in init_wiki_api --------#
 def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = languages): # or: 'available_langs'
