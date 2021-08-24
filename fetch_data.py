@@ -1,14 +1,26 @@
-# Setup packages and file paths 
+"""
+CWKN is an application that can be used to compare networks of Wikipedia page links about one topic across multiple languages. 
+Variations in network structure reflect different understandings of social concepts - such as 'secularism', 'gender' or 'terrorism' - between language groups.
+
+The app consists of two parts: 
+- The current file is fetch_data.py: a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
+- The second part is app.py: a Dash powered app to visualise and compare Wikipedia page links networks. 
+
+The app is under active development. 
+Please note that this is my first python script. Comments, feature suggestions or bug reports are welcome.
+"""
+
+#-------- loading packages --------#
 import time 
 import pandas as pd
 import init_wiki_api as iwa
 
-# Config
-languages = ["ar", "ja", "es", "zh", "fr", "ru"]
+#-------- config --------#
+languages = ["ar", "fr", 'ru'] # "ar", "ja", "es", "zh", "fr", "ru"
 path = "/home/teijehidde/Documents/Git Blog and Coding/data/"
-data_file = "network_data.json"
+data_file = "network_data2.json"
 
-# Downloading multiple languages of one topic and saving them to json/panda file.
+#-------- function to download wikinetwork in multple languages. Call functions in init_wiki_api --------#
 def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_langs = languages): # or: 'available_langs'
     network_data_df = iwa.downloadWikiNetwork(node_title=node_title, lang=original_lang)
     available_langs = network_data_df.loc[network_data_df['ego'] == True]['langlinks'].values.tolist()[0]
@@ -33,7 +45,7 @@ def downloadMultiLangWikiNetwork(node_title, original_lang = 'en', additional_la
     print("Download of network and additional languages finished. Returning to main menu...") 
     time.sleep(5) 
 
-# RUNTIME 
+#-------- Runtime --------#
 if __name__ == '__main__':
     while True: 
         print ('This command line tool downloads pagelink data from the chosen topic in English, Arabic, Japanese, Spanish, Chinese, French and Russian - if available.')
@@ -47,4 +59,4 @@ if __name__ == '__main__':
         else: 
             break
 
-# END 
+#-------- End --------#
