@@ -7,7 +7,7 @@ The app consists of two parts:
 - app.py is a Dash powered app to visualise and compare Wikipedia page links networks. 
 - fetch_data.py is a simple command line app to call the Wikimedia API. The app comes with a preloaded data set, but fetch_data.py can be used to add additional topics to this data set. 
 
-This is a prototype app and under active development. Please note that it was the very first python script I wrote, and used as a learnign project. Comments, feature suggestions or bug reports are welcome.
+This is a prototype app and under active development. Please note that it was the very first python script I wrote and was used as a learning project. Comments, feature suggestions or bug reports are welcome.
 
 
 
